@@ -60,7 +60,7 @@ def prepare_data(filename, msg_size=None):
 
     df['Energy'] = df['PK0_JOULE'] + df['PK1_JOULE']
 
-    df['EDP'] = df['Energy'] * df['Time']
+    df['EDP'] = 0.5 * df['Energy'] * df['Time']
 
     df['Power'] = df['Energy'] / df['Time']
 
@@ -88,8 +88,8 @@ class SimulatedAnnealing:
     def set_seed(self, seed=0):
         np.random.seed(seed)
 
-    def init_temperature(self, N_iter=10, max=False):
-        if max:
+    def init_temperature(self, N_iter=10, pick_max=False):
+        if pick_max:
             return np.max(list(self.data.values())) #worst-case
 
         keys = np.random.randint(0, len(self.data), size=N_iter)
@@ -98,9 +98,9 @@ class SimulatedAnnealing:
 
         return np.median([self.data[key_list[k]] for k in keys])
 
-    def init_params(self, max=False):
-        if max:
-            max_val = self.init_temperature(max=True)
+    def init_params(self, pick_max=False):
+        if pick_max:
+            max_val = self.init_temperature(pick_max=True)
             max_key = [x for x in self.data if self.data[x]==max_val]
             
             return max_key[0]
@@ -118,7 +118,7 @@ class SimulatedAnnealing:
                 decay_factor=0.99, 
                 decay_N_iter=100,
                 N_display=100,
-                max=False):
+                pick_max=False):
 
         self.records = []
         self.temperature = []
@@ -126,7 +126,7 @@ class SimulatedAnnealing:
         temperature = init_temp
         self.temperature.append(temperature)
 
-        params_current = self.init_params(max=max) #(ITR, DVFS, RAPL) = (16, 3072, 95)
+        params_current = self.init_params(pick_max=pick_max) #(ITR, DVFS, RAPL) = (16, 3072, 95)
         obj_current = self.data[params_current] #metric of interest (EDP, Power etc.)
         print(f'Initial Objective = {obj_current}')
 
@@ -163,6 +163,34 @@ class SimulatedAnnealing:
 
         return params_current
 
+    def plot(self, msg, save_name):
+        if not hasattr(self, "records"):
+            raise ValueError("Please run iterate before plotting")
+
+        N_data = len(self.data)
+
+        plt.figure()
+        plt.plot(np.sort(list(self.data.values())), label='EDP (Sorted)')
+        plt.plot(self.records[0:N_data], label='Optim Evolution')
+        plt.xlabel('Iteration Number (Truncated to Number of Data Points)')
+        plt.ylabel('EDP')
+        plt.title(f'Evolution of Simulated Annealing on Msg Size = {msg}')
+
+        plt.savefig(save_name)
+
+def run(N_iter=10000, msg_size=65536, worst_start=False, output_plot_fname='plot.png'):
+    d, df, int_to_vals, vals_to_int = prepare_data('6_14.csv', msg_size=msg_size)
+    sa = SimulatedAnnealing(d, int_to_vals, vals_to_int) 
+
+    if worst_start:
+        pick_max = True
+    else:
+        pick_max = False
+
+    sa.iterate(N_iter, init_temp=sa.init_temperature(pick_max=pick_max), pick_max=pick_max)
+    sa.plot(msg_size, output_plot_fname)
+
+    return sa
 
 class RandomSearch:
     def __init__(self, data):
