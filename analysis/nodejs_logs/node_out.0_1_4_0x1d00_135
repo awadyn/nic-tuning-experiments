@@ -1,0 +1,13 @@
+b'Running 30s test @ http://192.168.1.9:6666/index.html
+1 threads and 1 connections
+Thread Stats   Avg      Stdev     Max   +/- Stdev
+Latency    76.11us   31.63us   2.88ms   99.81%
+Req/Sec    13.09k   124.10    13.24k    88.70%
+Latency Distribution
+50%   74.00us
+75%   76.00us
+90%   79.00us
+99%   86.00us
+392161 requests in 30.10s, 58.34MB read
+Requests/sec:  13028.98
+Transfer/sec:      1.94MB'
