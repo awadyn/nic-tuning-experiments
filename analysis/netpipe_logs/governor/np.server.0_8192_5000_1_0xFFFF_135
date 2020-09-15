@@ -1,0 +1,25 @@
+Using no perturbations
+
+Resetting connection after every trial
+Performance measured without cache effects
+
+Send and receive buffers are 16384 and 131072 bytes
+(A bug in Linux doubles the requested buffer sizes)
+Found Sandybridge-EP Processor type
+	
+	Detected 16 cores in 2 packages
+
+	Listing paramaters for package #0
+		Power units = 0.125W
+		CPU Energy units = 0.00001526J
+		DRAM Energy units = 0.00000000J
+		Time units = 0.00097656s
+
+	Listing paramaters for package #1
+		Power units = 0.125W
+		CPU Energy units = 0.00001526J
+		DRAM Energy units = 0.00000000J
+		Time units = 0.00097656s
+
+
+SERVER_WORKLOAD_PERIOD: 10734049828473 10737773273459 21.775970 22.868866
