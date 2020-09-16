@@ -474,3 +474,115 @@ def asplos_nodejs_edp_plots(save_loc, slice_middle=False, scale_requests=True):
         plt.savefig(f'{save_loc}/nodejs_edp_detailed.png')
 
     return dfl, dfl_orig, dfl_tuned, dfl_tuned_orig, dfe, dfe_orig
+
+def make_3d_plots_nodejs(scale_requests, workload, save_loc):
+    if save_loc is not None:
+        if not os.path.exists(save_loc):
+            os.makedirs(save_loc)
+    
+    df, dfr, outlier_list = start_nodejs_analysis('aug4/nodejs_8_4.csv', 
+                                                   drop_outliers=True, 
+                                                   scale_requests=scale_requests)
+
+
+    min_edp_run = dfr.groupby(['sys', 'itr', 'dvfs', 'rapl'])['edp'].min().reset_index()
+    
+    best_runs = pd.merge(dfr, min_edp_run, on=['sys', 'itr', 'dvfs', 'rapl', 'edp'], how='inner')
+
+    xmax = 0
+    plt.figure(figsize=(9,8))
+
+    for sys in ['linux_tuned', 'ebbrt_tuned', 'linux_default']:
+        if sys=='linux_default':
+            d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']==1) & (best_runs['dvfs']=='0xFFFF')]
+            assert(d.shape[0]==1)
+
+        elif sys=='linux_tuned':
+            d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+        elif sys=='ebbrt_tuned':
+            d = best_runs[(best_runs['sys']=='ebbrt') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+        d = d.sort_values(by='edp', ascending=True)
+
+        xmax = max(xmax, d.shape[0])
+
+
+        if sys=='linux_default':
+            plt.hlines(d.iloc[0]['edp'], 0, xmax, colors=COLORS[sys], linestyle='--', label=LABELS[sys])
+
+        else:
+            plt.plot(d['edp'].tolist(), 'p', c=COLORS[sys], label=LABELS[sys])
+
+        plt.grid()
+        plt.legend()
+        plt.xlabel('Configuration ranked by EDP')
+        plt.ylabel('EDP (Js)')
+        plt.title(f'Configurations ranked by EDP for Netpipe\nfor 5000 Msg Size={msg}\nDataset Size = 3753 Experiments')
+
+        if save_loc:
+            plt.savefig(f'{save_loc}/plots3d_ranked_netpipe_msg{msg}.png')
+
+    #crude but works
+    for msg in [8192]:
+        for sys in ['linux_tuned', 'ebbrt_tuned', 'linux_default']:
+        #for msg in [64, 8192, 65536, 524288]:
+            if sys=='linux_default':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']==1) & (best_runs['dvfs']=='0xFFFF')]
+                assert(d.shape[0]==1)
+
+            elif sys=='linux_tuned':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            elif sys=='ebbrt_tuned':
+                d = best_runs[(best_runs['sys']=='ebbrt') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            d = d.sort_values(by='edp', ascending=True)
+
+
+
+            if sys=='linux_default': 
+                continue
+            fig = plt.figure(figsize=(9,7))
+            ax = fig.add_subplot(111, projection='3d')    
+
+            hist, xedges, yedges = np.histogram2d(d['time'], d['joules'], bins=[20,10])
+
+            xpos, ypos = np.meshgrid(xedges[:-1] + 0.25, yedges[:-1] + 0.25, indexing="ij")
+            xpos = xpos.ravel()
+            ypos = ypos.ravel()
+            zpos = 0
+
+            dx = dy = 0.5 * np.ones_like(zpos)
+            dz = hist.ravel()
+
+            ax.bar3d(xpos, ypos, zpos, dx, dy, dz, zsort='average', color=COLORS[sys])
+
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+
+            plt.title(f"Number of Experiments in Time-Energy Space for {sys.replace('_', ' ')}")
+
+            fig = plt.figure(figsize=(9,7))
+            plt.plot(d['time'], d['joules'], 'p', c=COLORS[sys], label=LABELS[sys])
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+
+            plt.title(f"Number of Experiments Time-Energy Space for {sys.replace('_', ' ')}")
+
+            fig = plt.figure(figsize=(9,7))
+            ax = fig.add_subplot(111)        
+
+            hist, xedges, yedges = np.histogram2d(d['time'], d['joules'], bins=[20,10])
+            ax.imshow(hist[::-1, :], cmap=COLORMAPS[sys])
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+            plt.title(f"Number of Experiments Time-Energy Space for {sys.replace('_', ' ')}")            
+
+            ax.set_xticklabels([f'{x:.2f}' for x in xedges])
+            ax.set_yticklabels([f'{y:.2f}' for y in yedges[::-1]], rotation=90)
+
+            for t in range(hist.shape[1]):
+                for e in range(hist.shape[0]):
+                    ax.text(t, hist.shape[0] - e - 1, int(hist[e, t]), ha="center", va="center", color="w")
+    

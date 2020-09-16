@@ -490,3 +490,146 @@ def asplos_netpipe_log_analysis(msg_size = 65536, save_loc=None, folder='aug16',
 
 
     return dfl, dfl_tuned, dfe, dfl_orig, dfl_tuned_orig, dfe_orig
+
+def make_3d_plots_netpipe(scale_requests, workload, save_loc):
+    if save_loc is not None:
+        if not os.path.exists(save_loc):
+            os.makedirs(save_loc)
+
+    df, dfr, outlier_list = start_netpipe_analysis(drop_outliers=True)
+
+    min_edp_run = dfr.groupby(['sys', 'itr', 'dvfs', 'rapl', 'msg'])['edp'].min().reset_index()
+    
+    best_runs = pd.merge(dfr, min_edp_run, on=['sys', 'itr', 'dvfs', 'rapl', 'msg', 'edp'], how='inner')
+
+    xmax = 0
+
+    for msg in [8192]:
+        for sys in ['linux_tuned', 'ebbrt_tuned', 'linux_default']:
+        #for msg in [64, 8192, 65536, 524288]:
+            if sys=='linux_default':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']==1) & (best_runs['dvfs']=='0xFFFF')]
+                assert(d.shape[0]==1)
+
+            elif sys=='linux_tuned':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            elif sys=='ebbrt_tuned':
+                d = best_runs[(best_runs['sys']=='ebbrt') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            d = d.sort_values(by='edp', ascending=True)
+
+            xmax = max(xmax, d.shape[0])
+
+            if sys=='linux_default':
+                plt.hlines(d.iloc[0]['edp'], 0, xmax, colors=COLORS[sys], linestyle='--', label=LABELS[sys])
+
+            else:
+                plt.plot(d['edp'].tolist(), 'p', c=COLORS[sys], label=LABELS[sys])
+
+            plt.grid()
+            plt.legend()
+            plt.xlabel('Configuration ranked by EDP')
+            plt.ylabel('EDP (Js)')
+            plt.title(f'Configurations ranked by EDP for Netpipe\nfor 5000 Msg Size={msg}\nDataset Size = 3753 Experiments')
+
+            if save_loc:
+                plt.savefig(f'{save_loc}/plots3d_ranked_netpipe_msg{msg}.png')
+
+    #crude but works
+    fig = plt.figure(figsize=(9,7))
+    for msg in [8192]:
+        for sys in ['linux_tuned', 'ebbrt_tuned', 'linux_default']:
+        #for msg in [64, 8192, 65536, 524288]:
+            if sys=='linux_default':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']==1) & (best_runs['dvfs']=='0xFFFF')]
+                assert(d.shape[0]==1)
+
+            elif sys=='linux_tuned':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            elif sys=='ebbrt_tuned':
+                d = best_runs[(best_runs['sys']=='ebbrt') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            d = d.sort_values(by='edp', ascending=True)
+
+            plt.plot(d['time'], d['joules'], 'p', c=COLORS[sys], label=LABELS[sys])
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+            plt.legend()
+            plt.title(f"Number of Experiments Time-Energy Space")
+            plt.grid()
+
+    if save_loc is not None:
+        plt.savefig(f'{save_loc}/plots3d_netpipe_scatter_points.png')
+
+    #crude but works
+    for msg in [8192]:
+        for sys in ['linux_tuned', 'ebbrt_tuned', 'linux_default']:
+        #for msg in [64, 8192, 65536, 524288]:
+            if sys=='linux_default':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']==1) & (best_runs['dvfs']=='0xFFFF')]
+                assert(d.shape[0]==1)
+
+            elif sys=='linux_tuned':
+                d = best_runs[(best_runs['sys']=='linux') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            elif sys=='ebbrt_tuned':
+                d = best_runs[(best_runs['sys']=='ebbrt') & (best_runs['msg']==msg) & (best_runs['itr']!=1) & (best_runs['dvfs']!='0xFFFF')]
+
+            d = d.sort_values(by='edp', ascending=True)
+
+
+
+            if sys=='linux_default': 
+                continue
+            '''
+            fig = plt.figure(figsize=(9,7))
+            ax = fig.add_subplot(111, projection='3d')    
+
+            hist, xedges, yedges = np.histogram2d(d['time'], d['joules'], bins=[20,10])
+
+            xpos, ypos = np.meshgrid(xedges[:-1] + 0.25, yedges[:-1] + 0.25, indexing="ij")
+            xpos = xpos.ravel()
+            ypos = ypos.ravel()
+            zpos = 0
+
+            dx = dy = 0.5 * np.ones_like(zpos)
+            dz = hist.ravel()
+
+            ax.bar3d(xpos, ypos, zpos, dx, dy, dz, zsort='average', color=COLORS[sys])
+
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+
+            if sys=='linux_tuned':
+                plt.title(f"Number of Experiments in Time-Energy Space for Linux")
+            elif sys=='ebbrt_tuned':
+                plt.title(f"Number of Experiments in Time-Energy Space for Library OS")
+            '''
+
+            fig = plt.figure(figsize=(9,7))
+            ax = fig.add_subplot(111)        
+
+            hist, xedges, yedges = np.histogram2d(d['time'], d['joules'], bins=[20,10])
+            ax.imshow(hist[::-1, :], cmap=COLORMAPS[sys])
+            plt.xlabel('Time (sec)')
+            plt.ylabel('Energy (Joules)')
+
+            if sys=='linux_tuned':
+                plt.title(f"Number of Experiments Time-Energy Space for Linux")            
+
+            elif sys=='ebbrt_tuned':
+                plt.title(f"Number of Experiments Time-Energy Space for Library OS")
+
+
+            ax.set_xticklabels([f'{x:.2f}' for x in xedges])
+            ax.set_yticklabels([f'{y:.2f}' for y in yedges[::-1]], rotation=90)
+
+            for t in range(hist.shape[1]):
+                for e in range(hist.shape[0]):
+                    if int(hist[e,t])>0:
+                        ax.text(t, hist.shape[0] - e - 1, int(hist[e, t]), ha="center", va="center", color="w")
+
+            if save_loc is not None:
+                plt.savefig(f'{save_loc}/plots3d_netpipe_heatmap_{sys}.png')

@@ -334,3 +334,71 @@ def process_nodejs_logs(df, slice_middle=False):
     #----------
 
     return df,df_orig
+
+def mcd_get_tsc_filename(filename):
+    fname_split = filename.split('.')
+
+    if filename.find('ebbrt')>-1:
+        assert(len(fname_split)==3)
+    
+    else:
+        assert(len(fname_split)==2)
+
+    fname_split[0] = fname_split[0].replace('_dmesg', '_rdtsc')
+    tag_split = fname_split[1].split('_')
+
+    tag = '_'.join([tag_split[0]] + tag_split[2:])
+
+    tsc_filename = f'{fname_split[0]}.{tag}'
+
+    return tsc_filename
+
+def mcd_get_time_bounds(filename):
+    if filename.find('mcdsilo_')>-1:
+        with open(filename) as f:
+            lines = f.readlines()
+
+        start = np.max([int(l.rstrip('\n').split()[2]) for l in lines])
+        return start, -1
+        #for l in lines:
+        #    _, _, start, end = [int(x) for x in l.rstrip('\n').split()]
+
+            #if end <= start:
+            #    continue
+
+            #delta = (end-start) * TIME_CONVERSION_khz
+            #print(start, end, delta)
+            #if abs(delta - 20.0) < 2:
+            #    return start, end
+
+    if filename.find('ebbrt')>-1:
+        with open(filename) as f:
+            lines = f.readlines()
+        assert(len(lines)==1)
+        lines = lines[0]
+
+        start, end = [int(x) for x in lines.rstrip('\n').split()]
+        print('Time Limits for EbbRT:', start, end)
+
+        return start, end
+
+    else:
+        df = pd.read_csv(filename, sep=' ', names=[0,1,2,3])
+
+
+    df[2] = df[2].astype(int)
+    df[3] = df[3].astype(int)
+
+    start =  df[2].max()
+    end = df[3].min()
+
+    if start < end:
+        return start, end
+    else:
+        df['diff'] = (df[3] - df[2]) * TIME_CONVERSION_khz
+        df = df[(df['diff']-30).abs() < 5].copy()
+    
+        start =  df[2].max()
+        end = df[3].min()
+        assert(start < end)
+        return start, end

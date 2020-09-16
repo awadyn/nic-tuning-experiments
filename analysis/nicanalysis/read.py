@@ -417,3 +417,372 @@ def read_nodej_logfile(filename):
     df['joules'] = df['joules'] * JOULE_CONVERSION
 
     return df
+
+def read_mcd_logfile(filename, nz=False):
+    #filter time
+    #tsc_filename = np.unique([mcd_get_tsc_filename(f) for f in filenames])
+    tsc_filename = mcd_get_tsc_filename(filename)
+    print(filename, tsc_filename)
+
+    start, end = mcd_get_time_bounds(tsc_filename)
+
+    #read
+    if filename.find('ebbrt')>-1:
+        COLS = [
+                'i',
+                'rxdesc',
+                'rxbytes',
+                'txdesc',
+                'txbytes',
+                'ins',
+                'cyc',
+                'refcyc',
+                'llcm',
+                'C3',
+                'C6',
+                'C7',
+                'JOULE',
+                'TSC'
+        ]
+
+        df = pd.read_csv(filename, sep=' ', skiprows=1, names=COLS)
+    else:
+        df = pd.read_csv(filename, sep=' ', skiprows=1)
+
+    df = rename_cols(df)
+
+    #drop first two columns
+    DROP_COLS = [c for c in df.columns if c.find('[')>-1 or c.find(']')>-1]
+    df.drop(DROP_COLS, axis=1, inplace=True)
+
+    if nz:
+        df = df[df['joules']>0].copy()
+
+    if end == -1:
+        df = df[(df['timestamp']>=start)]
+    else:
+        df = df[(df['timestamp']>=start) & (df['timestamp']<=end)]
+
+    df.sort_values('timestamp', ascending=True, inplace=True)
+
+    return df    
+
+def mcd_read_logfile_combined(sys, 
+                              run_id, 
+                              itr,
+                              dvfs,
+                              rapl,
+                              qps,
+                              nz=False,
+                              src_folder='aug19_mcdlogs',
+                              N=8,
+                              silo=False):
+
+    if sys=='linux':
+        tag = 'mcd'
+        extension = ''
+
+    elif sys=='ebbrt':
+        tag = sys
+        extension = '.csv'
+    else:
+        raise ValueError("Use valid tag")
+
+    if silo:
+        tag2 = 'silo'
+        if sys=='ebbrt':
+            tag2 = ''
+    else:
+        tag2 = ''
+
+    df_even = [read_mcd_logfile(f'{src_folder}/{tag}{tag2}_dmesg.{run_id}_{2*c}_{itr}_{dvfs}_{rapl}_{qps}{extension}', nz=nz) for c in range(N)]
+    if silo:
+        if N < 8:
+            df_odd = [read_mcd_logfile(f'{src_folder}/{tag}{tag2}_dmesg.{run_id}_{2*c+1}_{itr}_{dvfs}_{rapl}_{qps}{extension}', nz=nz) for c in range(N)]
+        else:
+            df_odd = [read_mcd_logfile(f'{src_folder}/{tag}{tag2}_dmesg.{run_id}_{2*c+1}_{itr}_{dvfs}_{rapl}_{qps}{extension}', nz=nz) for c in range(N-1)]
+    else:
+        df_odd = [read_mcd_logfile(f'{src_folder}/{tag}{tag2}_dmesg.{run_id}_{2*c+1}_{itr}_{dvfs}_{rapl}_{qps}{extension}', nz=nz) for c in range(N)]
+
+    return df_even, df_odd    
+
+def mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd, simple=False):
+    df1, df2 = df_even[core_even], df_odd[core_odd]
+
+    df1 = df1.copy()
+    df2 = df2.copy()
+
+    for col in ['joules', 'timestamp']:
+        df1[col] = df1[col] - df1[col].min()
+        df2[col] = df2[col] - df2[col].min()
+
+    #for d in [df1, df2]:
+    #    d['joules'] = d['joules'] * JOULE_CONVERSION
+    #    d['timestamp'] = d['timestamp'] * TIME_CONVERSION_khz
+
+
+    #
+    df1['timestamp'] *= TIME_CONVERSION_khz
+    df1['joules'] *= JOULE_CONVERSION
+
+    df2['timestamp'] *= TIME_CONVERSION_khz
+    df2['joules'] *= JOULE_CONVERSION
+
+    if simple:
+        return df1, df2, None
+
+    #combined edp
+    df_comb = pd.merge(df1, df2, how='outer', on='timestamp').sort_values(by='timestamp', ascending=True)
+    print(f'df1: {df1.shape[0]}')
+    print(f'df2: {df2.shape[0]}')
+    print(f'Total: {df1.shape[0] + df2.shape[0]}')
+    print(f'df_comb: {df_comb.shape[0]}')
+
+    #df_comb.fillna(0, inplace=True)
+    df_comb.fillna(method='ffill', inplace=True)
+    df_comb['joules'] = df_comb['joules_x'] + df_comb['joules_y']
+    #df_comb['timestamp'] *= TIME_CONVERSION_khz
+    #df_comb['joules'] *= JOULE_CONVERSION
+
+    return df1, df2, df_comb
+
+def mcd_edp_plot(qps=200000, run_id=0, scale_requests=True, src_folder='aug19_mcdlogs', core_even=0, core_odd=0, get_stats=False, save_loc=None, silo=False):
+    if save_loc is not None:
+        if not os.path.exists(save_loc):
+            os.makedirs(save_loc)
+
+    x_offset, y_offset = 0.01/5, 0.01/5
+    plt.figure(figsize=(9,7))
+
+    if silo:
+        df, dfr, outlier_list = start_mcdsilo_analysis('aug19_mcdsilologs/mcdsilo_combined.csv', scale_requests=True)
+    else:
+        df, dfr, outlier_list = start_mcd_analysis('aug10/mcd_combined.csv',
+                                                    drop_outliers=True, 
+                                                    scale_requests=scale_requests)
+
+    #====================Linux Default==================
+    sys = 'linux'
+    itr = 1
+    dvfs = '0xffff'
+    rapl = 135
+
+    df_runs = dfr[(dfr['sys']==sys) & (dfr['itr']==itr) & (dfr['dvfs']==dvfs) & (dfr['rapl']==rapl) & (dfr['QPS']==qps)]
+    for idx, row in df_runs.iterrows():
+        plt.plot([0, row['time']], [0, row['joules']], color=COLORS['linux_default'])
+
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=True,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+
+    df1, df2, df_comb = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd)
+
+    time_limit = dfr[(dfr["sys"]==sys) & (dfr["itr"]==itr) & (dfr["dvfs"]==dvfs) & (dfr["rapl"]==rapl) & (dfr["i"]==run_id) & (dfr["QPS"]==qps)]
+    assert(time_limit.shape[0]==1)
+    time_limit = time_limit.iloc[0]['time']
+
+    df1 = df1[df1['timestamp'] <= time_limit]
+    df2 = df2[df2['timestamp'] <= time_limit]
+    df_comb = df_comb[df_comb['timestamp'] <= time_limit]
+
+    dfl1, dfl2 = df1.copy(), df2.copy()
+    J, T,_ = plot(df_comb, LABELS['linux_default'], projection=True, color=COLORS['linux_default'], include_edp_label=True, JOULE_CONVERSION=1, TIME_CONVERSION=1, plot_every=200)
+    plt.text(x_offset + T, y_offset + J, f'(-, -, {rapl})')
+
+    if get_stats:
+        stats_ld = mcd_get_cumulative_statistics(sys, 
+                                                 run_id, 
+                                                 itr,
+                                                 dvfs,
+                                                 rapl,
+                                                 qps,
+                                                 src_folder=src_folder,
+                                                 core_even=core_even,
+                                                 core_odd=core_odd,
+                                                 silo=silo)
+
+    #bytes data
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=False,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+    dfl1_orig, dfl2_orig, _ = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd)
+    
+    dfl1_orig = dfl1_orig[dfl1_orig["timestamp"] <= time_limit]
+    dfl2_orig = dfl2_orig[dfl2_orig["timestamp"] <= time_limit]
+
+    #====================Linux Tuned==================
+    sys = 'linux'
+    itr = 1
+    dvfs = '0xffff'
+    #rapl = 135
+    
+    d = df[(df["sys"]==sys) & (df["itr"]!=itr) & (df["dvfs"]!=dvfs) & (df["QPS"]==qps)]
+    d = d[d['edp_mean']==d['edp_mean'].min()].iloc[0]
+
+    sys = d['sys']
+    itr = d['itr']
+    dvfs = d['dvfs']
+    rapl = d['rapl']
+
+    df_runs = dfr[(dfr['sys']==sys) & (dfr['itr']==itr) & (dfr['dvfs']==dvfs) & (dfr['rapl']==rapl) & (dfr['QPS']==qps)]
+    for idx, row in df_runs.iterrows():
+        plt.plot([0, row['time']], [0, row['joules']], color=COLORS['linux_tuned'])
+
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=True,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+    df1, df2, df_comb = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd)
+ 
+    time_limit = dfr[(dfr["sys"]==sys) & (dfr["itr"]==itr) & (dfr["dvfs"]==dvfs) & (dfr["rapl"]==rapl) & (dfr["i"]==run_id) & (dfr["QPS"]==qps)]
+    assert(time_limit.shape[0]==1)
+    time_limit = time_limit.iloc[0]['time']
+
+    df1 = df1[df1['timestamp'] <= time_limit]
+    df2 = df2[df2['timestamp'] <= time_limit]
+    df_comb = df_comb[df_comb['timestamp'] <= time_limit]
+
+    dfl1_tuned, dfl2_tuned = df1.copy(), df2.copy()
+    J, T,_ = plot(df_comb, LABELS['linux_tuned'], projection=True, color=COLORS['linux_tuned'], include_edp_label=True, JOULE_CONVERSION=1, TIME_CONVERSION=1, plot_every=200)
+    plt.text(x_offset + T, y_offset + J, f'({d["itr"]}, {d["dvfs"]}, {d["rapl"]})')
+
+    if get_stats:
+        stats_lt = mcd_get_cumulative_statistics(sys, 
+                                                 run_id, 
+                                                 itr,
+                                                 dvfs,
+                                                 rapl,
+                                                 qps,
+                                                 src_folder=src_folder,
+                                                 core_even=core_even,
+                                                 core_odd=core_odd,
+                                                 silo=silo)
+
+
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=False,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+    dfl1_tuned_orig, dfl2_tuned_orig, _ = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd, simple=True)
+
+    dfl1_tuned_orig = dfl1_tuned_orig[dfl1_tuned_orig["timestamp"] <= time_limit]
+    dfl2_tuned_orig = dfl2_tuned_orig[dfl2_tuned_orig["timestamp"] <= time_limit]
+
+    #if not get_stats:
+    #    stats_ld, stats_lt = {}, {}
+
+    #return dfl1, dfl2, dfl1_orig, dfl2_orig, dfl1_tuned, dfl2_tuned, dfl1_tuned_orig, dfl2_tuned_orig, stats_ld, stats_lt
+
+    #====================EbbRT Tuned==================
+    sys = 'ebbrt'
+    itr = 1
+    dvfs = '0xffff'
+    #rapl = 135
+
+    d = df[(df["sys"]==sys) & (df["itr"]!=itr) & (df["dvfs"]!=dvfs) & (df["QPS"]==qps)]
+    d = d[d['edp_mean']==d['edp_mean'].min()].iloc[0]
+
+    sys = d['sys']
+    itr = d['itr']
+    dvfs = d['dvfs']
+    rapl = d['rapl']
+
+    df_runs = dfr[(dfr['sys']==sys) & (dfr['itr']==itr) & (dfr['dvfs']==dvfs) & (dfr['rapl']==rapl) & (dfr['QPS']==qps)]
+    for idx, row in df_runs.iterrows():
+        plt.plot([0, row['time']], [0, row['joules']], color=COLORS['ebbrt_tuned'])
+
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=True,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+    df1, df2, df_comb = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd)
+
+    time_limit = dfr[(dfr["sys"]==sys) & (dfr["itr"]==itr) & (dfr["dvfs"]==dvfs) & (dfr["rapl"]==rapl) & (dfr["i"]==run_id) & (dfr["QPS"]==qps)]
+    assert(time_limit.shape[0]==1)
+    time_limit = time_limit.iloc[0]['time']
+
+    df1 = df1[df1['timestamp'] <= time_limit]
+    df2 = df2[df2['timestamp'] <= time_limit]
+    df_comb = df_comb[df_comb['timestamp'] <= time_limit]
+
+    dfe1, dfe2 = df1.copy(), df2.copy()
+    J, T,_ = plot(df_comb, LABELS['ebbrt_tuned'], projection=True, color=COLORS['ebbrt_tuned'], include_edp_label=True, JOULE_CONVERSION=1, TIME_CONVERSION=1, plot_every=200)
+    plt.text(x_offset + T, y_offset + J, f'({d["itr"]}, {d["dvfs"]}, {d["rapl"]})')
+
+    if get_stats:
+        stats_et = mcd_get_cumulative_statistics(sys, 
+                                                 run_id, 
+                                                 itr,
+                                                 dvfs,
+                                                 rapl,
+                                                 qps,
+                                                 src_folder=src_folder,
+                                                 core_even=core_even,
+                                                 core_odd=core_odd,
+                                                 silo=silo)
+
+    df_even, df_odd = mcd_read_logfile_combined(sys, 
+                                                run_id, 
+                                                itr,
+                                                dvfs,
+                                                rapl,
+                                                qps,
+                                                nz=False,
+                                                src_folder=src_folder,
+                                                N=1,
+                                                silo=silo)
+
+    dfe1_orig, dfe2_orig, _ = mcd_prepare_for_edp(df_even, df_odd, core_even, core_odd, simple=True)
+
+    dfe1_orig = dfe1_orig[dfe1_orig["timestamp"] <= time_limit]
+    dfe2_orig = dfe2_orig[dfe2_orig["timestamp"] <= time_limit]
+
+    if silo:
+        plt.title(f"Memcached Silo Workload \nwith 5,000,000 requests\nand QPS={qps}")
+    else:
+        plt.title(f"Memcached Workload \nwith 5,000,000 requests\nand QPS={qps}")
+    prettify()
+
+    if save_loc is not None:
+        if silo:
+            plt.savefig(f'{save_loc}/mcdsilo_edp_QPS{qps}.png')
+        else:
+            plt.savefig(f'{save_loc}/mcd_edp_QPS{qps}.png')
+
+    if not get_stats:
+        stats_ld, stats_lt, stats_et = {}, {}, {}
+
+    return dfl1, dfl2, dfl1_orig, dfl2_orig, dfl1_tuned, dfl2_tuned, dfl1_tuned_orig, dfl2_tuned_orig, dfe1, dfe2, dfe1_orig, dfe2_orig, stats_ld, stats_lt, stats_et
+    
