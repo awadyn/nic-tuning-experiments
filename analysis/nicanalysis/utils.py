@@ -86,3 +86,251 @@ def filter_outliers(lines, dfr):
 
     return dfr
 
+def rename_cols(df):
+    cols = []
+    for c in df.columns:
+        if c.lower().find('joule')>-1:
+            cols.append('joules')
+
+        elif c.lower()=='rnd':
+            cols.append('i')
+
+        elif c=='RDTSC_START':
+            cols.append(c.lower())
+
+        elif c=='RDTSC_END':
+            cols.append(c.lower())
+
+        elif c.lower().find('tsc')>-1:
+            cols.append('timestamp')
+
+        elif c.find('ins')>-1:
+            cols.append('instructions')
+
+        elif c.find('llcm')>-1:
+            cols.append('llc_miss')
+
+        #elif c.find('refcyc'):
+        #    cols.append('refcycles')
+
+        elif c=='cyc':
+            cols.append('cycles')
+
+        else:
+            cols.append(c)
+    df.columns = cols
+
+    return df
+
+def plot(df, 
+         label, 
+         projection=False, 
+         color='orange', 
+         plot_every=50,
+         include_edp_label=False,
+         JOULE_CONVERSION=1,
+         TIME_CONVERSION=1):
+
+    df_non0j = df[df['joules']>0].copy()
+
+    #cleanup
+    drop_cols = [c for c in df_non0j.columns if c.find('Unnamed')>-1]
+    if len(drop_cols) > 0: df_non0j.drop(drop_cols, axis=1, inplace=True)
+    print(f'Dropping null rows: {df_non0j.shape[0] - df_non0j.dropna().shape[0]} rows')
+    df_non0j.dropna(inplace=True)
+
+    #reset 0 for metrics and convert units
+    df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
+    df_non0j['joules'] = df_non0j['joules'] - df_non0j['joules'].min()
+    
+    df_non0j['timestamp'] = df_non0j['timestamp'] * TIME_CONVERSION
+    df_non0j['joules'] = df_non0j['joules'] * JOULE_CONVERSION
+
+    assert(df_non0j.shape==df_non0j.dropna().shape)
+    
+    #get edp value
+    last_row = df_non0j.tail(1).iloc[0]
+    edp_val = 0.5 * last_row['joules'] * last_row['timestamp']
+    
+    print(f'EDP               : {edp_val}')
+    #print(f'Total Instructions: {df_non0j["instructions"].sum()}')
+    #print(f'Total Cache Misses: {df_non0j["llc_miss"].sum()}')
+    #print(f'Total Cycles      : {df_non0j["cycles"].sum()}')
+
+    if include_edp_label: label = f'{label} EDP={edp_val:.2f}'
+
+    #plot line and points
+    plt.plot(df_non0j['timestamp'], df_non0j['joules'], '-', color = color)
+    plt.plot(df_non0j['timestamp'].iloc[::plot_every], df_non0j['joules'].iloc[::plot_every], 'p', label=label, color=color)    
+
+    #plot lines projecting onto the x and y axes from the end-point
+    if projection:
+        plt.plot([df_non0j['timestamp'].max(), df_non0j['timestamp'].max()], 
+                 [df_non0j['joules'].max(), 0], '--', color=color)
+
+        plt.plot([df_non0j['timestamp'].max(), 0], 
+                 [df_non0j['joules'].max(), df_non0j['joules'].max()], '--', color=color)
+
+    return last_row['joules'], last_row['timestamp'], df_non0j
+
+def prettify(xlabel = 'Time (seconds)', 
+             ylabel = 'Energy Consumed (Joules)', 
+             prop={},
+             ncol=1):
+    
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+
+    plt.xlim(0, plt.xlim()[1])
+    plt.ylim(0, plt.ylim()[1]) 
+
+    plt.grid()
+    plt.legend()
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), 
+               loc='lower left', 
+               ncol=ncol, 
+               #mode="expand", 
+               borderaxespad=0.,
+               prop=prop)
+
+def clean_name(k):
+    return k.replace('.csv','').replace('.stats', '').replace('base_linux_', '')
+
+def make_abstract_plot():
+    XMAX = 10
+
+    fig = plt.figure()
+
+    points = ([0.8, np.sqrt(9*0.8 / (5.3/4.3)), 4.3, 9.], [9, 9*0.8/np.sqrt(9*0.8 / (5.3/4.3)), 5.3, 3.5])
+    EDP_vals = [x*y for (x,y) in zip(*points)]
+    colors = ['orange', 'orange', 'green', 'blue']
+
+    offset = 0.1
+    #plot points with EDP areas
+    for idx in range(len(points[0])):
+        plt.plot([0, points[0][idx]], [0, points[1][idx]], 'p-', color=colors[idx], markerfacecolor=colors[idx])
+        plt.plot([points[0][idx], points[0][idx]], [0, points[1][idx]], '--', color=colors[idx])
+        plt.plot([0, points[0][idx]], [points[1][idx], points[1][idx]], '--', color=colors[idx])
+
+        #plot points on line
+        x_line = np.linspace(0, points[0][idx], 5)
+        y_line = points[1][idx] / points[0][idx] * x_line
+        plt.plot(x_line, y_line, 'p', color=colors[idx])
+
+        plt.text(points[0][idx] + offset, points[1][idx] + offset, chr(65+idx))
+
+        ax = fig.axes[0]
+
+        x_range = [0, points[0][idx]]
+        y_low = [0, 0]
+        y_high = [0, points[1][idx]]
+        ax.fill_between(x_range, y_low, y_high, color=colors[idx], alpha=0.3)
+
+    #plot EDP curves
+    for idx in range(1, len(EDP_vals)):
+        EDP = EDP_vals[idx]
+
+        x_vals = np.linspace(0.1, XMAX, 50)
+        y_vals = EDP / x_vals
+        plt.plot(x_vals, y_vals, '-', label=f'EDP = {EDP:.2f}', color=colors[idx])
+
+        #plot 3 random points
+        #XMIN = EDP / XMAX
+        #x_rnd = np.random.choice(np.linspace(XMIN, XMAX, 50), 3)
+        #y_rnd = EDP / x_rnd
+        #plt.plot(x_rnd, y_rnd, 'p', color=colors[idx])
+
+    plt.grid()
+    plt.legend()
+
+    plt.xlim([0, XMAX])
+    plt.ylim([0, XMAX])
+    plt.xlabel("Time Taken (arbitrary units)")
+    plt.ylabel("Energy Consumed (arbitrary units)")
+    plt.title("Energy vs Time with Curves of \nConstant Energy-Delay Product Values")
+
+def asplos_log_plots(filename, folder, skiprows=None, slice_middle=True):
+    if folder=='jul20':
+        df = pd.read_csv(filename, sep = ' ', names=COLS, skiprows=skiprows)
+    else:
+        df = pd.read_csv(filename, sep = ' ', skiprows=skiprows)
+
+    if folder=='jul20':
+        COLS_TO_DIFF = ['instructions', 'cycles', 'llc_miss', 'joules', 'timestamp']
+    else:
+        COLS_TO_DIFF = ['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'timestamp']
+
+    #----------
+    df_orig = df.copy()
+    for c in COLS_TO_DIFF: 
+        df_orig[c] = df_orig[c] - df_orig[c].min()
+    df_orig['timestamp'] = df_orig['timestamp'] * TIME_CONVERSION_khz
+    df_orig['joules'] = df_orig['joules'] * JOULE_CONVERSION
+    #---------
+
+    df = df[df['joules'] > 0].copy()
+
+    for c in COLS_TO_DIFF: 
+        df[c] = df[c] - df[c].min()
+
+    df['timestamp'] = df['timestamp'] * TIME_CONVERSION_khz
+    df['joules'] = df['joules'] * JOULE_CONVERSION
+
+    df2 = df[COLS_TO_DIFF + ['i']].diff()
+    df2.columns = [f'{c}_diff' for c in df2.columns]
+
+    df = pd.concat([df, df2], axis=1)
+
+    print("Assuming >= 1 second time")
+    if slice_middle:
+        df = df[(df.timestamp >= df.timestamp.max()*0.5-0.1) & (df.timestamp <= df.timestamp.max()*0.5+0.1)]
+
+    for c in COLS_TO_DIFF: 
+        df[c] = df[c] - df[c].min()
+
+    if folder=='jul20':
+        df['nonidle_timestamp_diff'] = df['cycles_diff'] * TIME_CONVERSION_khz
+    else:
+        df['nonidle_timestamp_diff'] = df['ref_cycles_diff'] * TIME_CONVERSION_khz
+
+    df['nonidle_frac_diff'] = df['nonidle_timestamp_diff'] / df['timestamp_diff']
+
+    #----------
+    if slice_middle:
+        df_orig = df_orig[(df_orig.timestamp >= df.timestamp.max()*0.5-0.1) & (df_orig.timestamp <= df.timestamp.max()*0.5+0.1)]
+    #----------
+    
+    return df, df_orig
+
+def process_nodejs_logs(df, slice_middle=False):
+    df_orig = df.copy()
+    for c in ['instructions', 'refcyc', 'cycles', 'llc_miss', 'joules', 'timestamp']: 
+        df_orig[c] = df_orig[c] - df_orig[c].min()
+    #---------
+
+    df = df[df['joules'] > 0].copy()
+
+    for c in ['instructions', 'refcyc', 'cycles', 'llc_miss', 'joules', 'timestamp']: 
+        df[c] = df[c] - df[c].min()
+
+    df2 = df[['instructions', 'refcyc', 'cycles', 'joules', 'timestamp', 'i']].diff()
+    df2.columns = [f'{c}_diff' for c in df2.columns]
+
+    df = pd.concat([df, df2], axis=1)
+
+    print("Assuming >= 1 second time")
+    if slice_middle:
+        df = df[(df.timestamp >= df.timestamp.max()*0.5-0.1) & (df.timestamp <= df.timestamp.max()*0.5+0.1)]
+
+    for c in ['instructions', 'refcyc', 'cycles', 'llc_miss', 'joules', 'timestamp']: 
+        df[c] = df[c] - df[c].min()
+
+    df['nonidle_timestamp_diff'] = df['refcyc_diff'] * TIME_CONVERSION_khz
+    df['nonidle_frac_diff'] = df['nonidle_timestamp_diff'] / df['timestamp_diff']
+
+    #----------
+    if slice_middle:
+        df_orig = df_orig[(df_orig.timestamp >= df.timestamp.max()*0.5-0.1) & (df_orig.timestamp <= df.timestamp.max()*0.5+0.1)]
+    #----------
+
+    return df,df_orig

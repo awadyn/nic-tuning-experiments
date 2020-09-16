@@ -336,3 +336,84 @@ def start_mcdsilo_analysis(filename, drop_outliers=False, scale_requests=False):
         df.reset_index(inplace=True)
 
     return df, dfr, outlier_list
+
+def read_nodej_logfile(filename):
+    EBBRT_COLS = ['i',
+                  'rxdesc',
+                  'rxbytes',
+                  'txdesc',
+                  'txbytes', 
+                  'ins', 
+                  'cyc', 
+                  'refcyc', 
+                  'llcm', 
+                  'C3', 
+                  'C6', 
+                  'C7', 
+                  'JOULE', 
+                  'TSC']
+
+    if filename.find('node_dmesg')>-1:
+        df = pd.read_csv(filename, sep=' ', skiprows=1)
+
+        tsc_file = filename.replace('_dmesg', '_rdtsc').replace('.csv', '')
+
+        print(f'Log file      : {filename}')
+        print(f'Timestamp file: {tsc_file}')
+
+        found_time_interval = False
+        with open(tsc_file) as f:
+            lines = f.readlines()
+            lines = [l for l in lines if len(l)>0]
+            if len(lines) != 3:
+                raise ValueError(f'{filename} found !=3 tsc limits')
+            
+            for l in lines:
+                l_split = l.split()
+                start, end = int(l_split[1]), int(l_split[2])
+
+                tval = np.abs(end-start) * TIME_CONVERSION_khz
+                if np.abs(tval - 30) < 0.2:
+                    print(f'Found time interval: {tval}')
+                    found_time_interval = True
+                    break
+
+            if not found_time_interval:
+                raise ValueError("Didn't find valid time interval")
+            print(f'Using time interval: {tval}')
+
+    elif filename.find('ebbrt_dmesg')>-1:
+        df = pd.read_csv(filename, sep=' ', skiprows=1, names=EBBRT_COLS)
+
+        #tsc file
+        tags = filename.split('.')
+        tags[0] = tags[0].replace('_dmesg', '_rdtsc')
+        tag1_split = tags[1].split('_')
+        tags[1] = '_'.join([tag1_split[0]] + tag1_split[2:])
+        tsc_file = '.'.join(tags[0:-1])
+
+        print(f'Log file      : {filename}')
+        print(f'Timestamp file: {tsc_file}')
+
+        with open(tsc_file) as f:
+            lines = f.readlines()
+            lines = [l for l in lines if len(l)>0]
+            if len(lines) != 1:
+                raise ValueError(f'{filename} found multiple tsc limits')
+            start, end = [int(l) for l in lines[0].split()]
+            print(start, end)
+
+    df = rename_cols(df)
+
+    print("Filtering on timestamps")
+    print(f"Before filtering: {df.shape[0]}")
+    df = df[(df['timestamp'] >= start) & (df['timestamp'] <= end)]
+    print(f"After filtering: {df.shape[0]}")
+
+    df["timestamp"] = df["timestamp"] - df["timestamp"].min()
+    df["joules"] = df["joules"] - df["joules"].min()
+
+    df['timestamp'] = df['timestamp'] * TIME_CONVERSION_khz
+    df['joules'] = df['joules'] * JOULE_CONVERSION
+
+    return df
