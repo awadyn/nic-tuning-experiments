@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pylab as plt
 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 plt.ion()
 
 TIME_CONVERSION = 1./(2899999*1000)
@@ -203,4 +207,46 @@ class CEM:
 class PolicyGradient:
     def __init__(self, data):
         self.data = data
+
+#map msg size -> (itr, rapl, dvfs)
+class PolicyNet(nn.Module):
+    def __init__(self, N_inputs, N_nodes, N_layers, activation, output_activation, df):
+        super(PolicyNet, self).__init__()
+
+        msg_embedding_dim = 4
+        N_itr = len(df['ITR'].unique())
+        N_rapl = len(df['RAPL'].unique())
+        N_dvfs = len(df['DVFS'].unique())
+
+        self.activation = activation
+        self.output_activation = output_activation
+
+        self.emb_msg = nn.Embedding(4, msg_embedding_dim)
+
+        self.layers = nn.ModuleList()
+        for i in range(N_layers):
+            if i==0:
+                self.layers.append(nn.Linear(msg_embedding_dim, N_nodes))
+            else:
+                self.layers.append(nn.Linear(N_nodes, N_nodes))
+
+        self.output_itr = nn.Linear(N_nodes, N_itr)
+        self.output_rapl = nn.Linear(N_nodes, N_rapl)
+        self.output_dvfs = nn.Linear(N_nodes, N_dvfs)
+
+    def forward(self, inp):
+        #embedding
+        o = self.emb_msg(inp)
+
+        #hidden layers
+        for layer in self.layers:
+            o = self.activation(layer(o))
+
+        #output
+        pred_itr = self.output_activation(self.output_itr(o))
+        pred_rapl = self.output_activation(self.output_rapl(o))
+        pred_dvfs = self.output_activation(self.output_dvfs(o))
+
+        return pred_itr, pred_rapl, pred_dvfs
+
 
