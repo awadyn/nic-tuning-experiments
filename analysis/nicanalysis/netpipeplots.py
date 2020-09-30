@@ -1,8 +1,105 @@
 import os
 import matplotlib.pylab as plt
+import numpy as np
 from utils import *
 from constants import *
+#plt.ion()
 
+def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    for msg in msgs.split(' '):
+        ## print Linux Default
+        if plot_default:
+            filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_1_0xFFFF_135.csv'
+            #print(filename)
+            df = pd.read_csv(filename, sep = ' ')
+            d = df['rx_bytes'].value_counts()
+            total = d.sum()
+            d = d/total
+            entropy = -(d * np.log(d)).sum()
+            print(f'MSG={msg} ITR=1 DVFS=0xFFFF entropy={entropy}')
+            
+        for dv in dvfs.split(' '):
+            for itr in itrs.split(' '):
+                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df = pd.read_csv(filename, sep = ' ')
+                d = df['rx_bytes'].value_counts()
+                total = d.sum()
+                d = d/total
+                entropy = -(d * np.log(d)).sum()
+                print(f'MSG={msg} ITR={itr} DVFS={dv} entropy={entropy}')
+                
+def netpipe_rx_bytes_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    for msg in msgs.split(' '):
+        ## plot Linux Default
+        if plot_default:
+            filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_1_0xFFFF_135.csv'
+            print(filename)
+            df = pd.read_csv(filename, sep = ' ')
+            df['timestamp'] -= df['timestamp'].min()
+            df['timestamp'] *= TIME_CONVERSION_khz
+
+            plt.figure()
+            #plt.plot(df['timestamp'], df['rx_bytes'], 'p')
+            plt.plot(df['rx_bytes'], 'p')
+            plt.xlabel('interrupt index')
+            plt.title(f'MSG={msg} Linux Default rx_bytes')
+            
+        for d in dvfs.split(' '):
+            for itr in itrs.split(' '):
+                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{d}_135.csv'
+                print(filename)
+                df = pd.read_csv(filename, sep = ' ')
+                df['timestamp'] -= df['timestamp'].min()
+                df['timestamp'] *= TIME_CONVERSION_khz
+                
+                plt.figure()
+                df['timestamp_diff'] = df['timestamp'].diff()
+                #plt.plot(df['timestamp_diff'], df['rx_bytes'], 'p')
+                plt.plot(df['rx_bytes'], 'p')
+                plt.xlabel('interrupt index')
+                plt.title(f'RX_BYTES\n MSG={msg} ITR={itr}')
+    
+def netpipe_edp_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    if folder == '':
+        print("Need folder\n")
+        exit(0)
+        
+    x_offset, y_offset = 0.01/5, 0.01/5    
+        
+    for msg in msgs.split(' '):
+        fig = plt.figure(figsize=(9,7))                
+        ## plot Linux Default
+        if plot_default:
+            filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_1_0xFFFF_135.csv'
+            print(filename)
+            df = pd.read_csv(filename, sep = ' ')
+            J, T,_ = plot(df, 'Linux Default', projection=True, include_edp_label=False, JOULE_CONVERSION=JOULE_CONVERSION, TIME_CONVERSION=TIME_CONVERSION_khz)
+            plt.text(x_offset + T, y_offset + J, f'(-, -, *)')
+        
+        for d in dvfs.split(' '):
+            for itr in itrs.split(' '):
+                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{d}_135.csv'
+                print(filename)
+                df = pd.read_csv(filename, sep = ' ')
+                sumt = df['rx_bytes'].sum()
+                
+                print(filename, 'rxbytes=', sumt/(8192*5000), df.shape[0])                
+                J, T,_ = plot(df, 'Linux Tuned', projection=True, include_edp_label=False, JOULE_CONVERSION=JOULE_CONVERSION, TIME_CONVERSION=TIME_CONVERSION_khz)
+                                
+                plt.text(x_offset + T, y_offset + J, f'({itr}, {d}, *)')
+        
+        #axes etc.
+        #prettify()
+        plt.xlabel('Time (seconds)')
+        plt.ylabel('Energy Consumed (Joules)')
+        
+        plt.xlim(0, plt.xlim()[1])
+        plt.ylim(0, plt.ylim()[1]) 
+        
+        plt.grid()
+        #plt.title(f"Netpipe Experiment\n Msg Size = {msg} Bytes")
+        plt.title(f"{folder}\n Msg Size = {msg} Bytes")
+        
 def asplos_netpipe_tput_scan(save_loc):
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)

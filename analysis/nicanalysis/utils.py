@@ -1,4 +1,6 @@
 import pandas as pd
+import matplotlib.pylab as plt
+import numpy as np
 
 def convert_units(df):
     '''Convert raw counters into physical units
