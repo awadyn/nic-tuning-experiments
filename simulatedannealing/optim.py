@@ -6,11 +6,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from multiprocessing import Manager, Process
+import glob
+
 plt.ion()
 
 TIME_CONVERSION = 1./(2899999*1000)
 KEYS = ['MSG', 'ITR', 'RAPL', 'DVFS']
 METRIC = 'EDP'
+
+COLS = ['i', 'rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes', 'instructions', 'cycles', 'llc_miss', 'joules', 'timestamp']
 
 '''
 Varying workloads
@@ -203,6 +208,34 @@ class RandomSearch:
 class CEM:
     def __init__(self, data):
         self.data = data
+
+def compute_features_from_logs(loc, N_parallel=4):
+    def featurize(file, data):
+        df = pd.read_csv(file, sep=' ')
+
+        #add features here
+        d = {'name': file}
+        d['shape'] = df.shape[0]
+
+        data.append(d)
+
+    manager = Manager()
+    data = manager.list()
+    plist = []
+
+    N_current = 0
+    for file in glob.glob(f'{loc}/*.csv'):
+
+        p = Process(target=featurize, args=(file, data))
+        p.start()
+        N_current += 1
+
+        plist.append(p)
+
+        if N_current % N_parallel == 0:
+            [p.join() for p in plist]
+
+    return data
 
 class PolicyGradient:
     def __init__(self, data):
