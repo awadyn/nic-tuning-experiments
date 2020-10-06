@@ -10,7 +10,8 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
     edpl=[]
     ovrhl=[]
     nitr=[]
-    
+
+    ditr=['']
     for msg in msgs.split(' '):
         ## print Linux Default
         if plot_default:
@@ -24,8 +25,9 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
             d = d/total
             entropy = -(d * np.log(d)).sum()
             enl.append(entropy)
-            print(f'MSG={msg} ITR=1 DVFS=0xFFFF RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
-            ovrhl.append((sumt/(8192*5000)) - 1.0)
+            #print(f'MSG={msg} ITR=1 DVFS=0xFFFF RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
+            print(f'MSG={msg} ITR=1 RX_BYTE_OVERHEAD={(sumt/(float(msg)*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
+            ovrhl.append((sumt/(float(msg)*5000)) - 1.0)
             nitr.append(df.shape[0])
             df_non0j = df[df['joules']>0].copy()
             df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
@@ -38,6 +40,8 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
             last_row = df_non0j.tail(1).iloc[0]
             edp_val = 0.5 * last_row['joules'] * last_row['timestamp']
             edpl.append(edp_val)
+
+            ditr=['1']
                 
         for dv in dvfs.split(' '):
             for itr in itrs.split(' '):
@@ -51,8 +55,9 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
                 
                 entropy = -(d * np.log(d)).sum()
                 enl.append(entropy)
-                print(f'MSG={msg} ITR={itr} DVFS={dv} RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
-                ovrhl.append((sumt/(8192*5000)) - 1.0)
+                #print(f'MSG={msg} ITR={itr} DVFS={dv} RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
+                print(f'MSG={msg} ITR={itr} RX_BYTE_OVERHEAD={(sumt/(float(msg)*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
+                ovrhl.append((sumt/(float(msg)*5000)) - 1.0)
                 nitr.append(df.shape[0])
                 df_non0j = df[df['joules']>0].copy()
                 df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
@@ -67,26 +72,29 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
                 edpl.append(edp_val)
     
         plt.figure()
-        plt.plot(['1']+itrs.split(' '), enl, '*', c='g')
+        plt.plot(ditr+itrs.split(' '), enl, '*', c='g')
         plt.xlabel('ITR-Delay')
         plt.ylabel('RX_BYTES Entropy')
         plt.legend()
         plt.grid()
 
         plt.figure()
-        plt.plot(['1']+itrs.split(' '), edpl, 'x', c='r')
+        #plt.plot(['1']+itrs.split(' '), edpl, 'x', c='r')
+        plt.plot(ditr+itrs.split(' '), edpl, '*', c='g')
         plt.xlabel('ITR-Delay')
         plt.ylabel('EDP')
         plt.grid()
 
         plt.figure()
-        plt.plot(['1']+itrs.split(' '), ovrhl, '.', c='b')
+        #plt.plot(['1']+itrs.split(' '), ovrhl, '.', c='b')
+        plt.plot(ditr+itrs.split(' '), ovrhl, '*', c='g')
         plt.xlabel('ITR-Delay')
         plt.ylabel('RX_BYTE Overhead')
         plt.grid()
 
         plt.figure()
-        plt.plot(['1']+itrs.split(' '), nitr, '^', c='orange')
+        #plt.plot(['1']+itrs.split(' '), nitr, '^', c='orange')
+        plt.plot(ditr+itrs.split(' '), nitr, '*', c='g')
         plt.xlabel('ITR-Delay')
         plt.ylabel('NUM INTERRUPTS')
         plt.grid()
