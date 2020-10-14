@@ -209,9 +209,45 @@ class CEM:
     def __init__(self, data):
         self.data = data
 
+'''
+    612 1000
+    612 12288
+    612 131072
+    612 1321
+    612 16384
+    612 24576
+    612 4096
+    612 49152
+    612 7777
+    711 8192
+    612 98304
+    612 9999
+
+'''
+
+def compute_features_from_all_logs(loc, N_parallel=1):
+    files = glob.glob(f'{loc}/*.csv')
+    msgs = np.unique([f.split('/')[-1].split('.')[3].split('_')[2] for f in files])
+
+    df_list = []
+    for msg in msgs:
+        print(f"Constructing features for msg = {msg}...")
+        df = compute_features_from_logs(f'{loc}/*{msg}*.csv', N_parallel=N_parallel)
+        df.reset_index(inplace=True)
+        df_list.append(df)
+
+    df = pd.concat(df_list, axis=0)
+
+    return df
+
+
+
 def compute_features_from_logs(loc, N_parallel=4):
-    def compute_entropy(df, colname):
+    def compute_entropy(df, colname, nonzero=False):
         x  = df[colname].value_counts()
+
+        if nonzero:
+            x = x[x.index > 0]
 
         x = x / x.sum() #scipy.stats.entropy actually automatically normalizes
 
@@ -231,7 +267,8 @@ def compute_features_from_logs(loc, N_parallel=4):
         #add features here
         d = {'name': file}        
         for col in ['rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes']:
-            d[f'entropy_{col}'] = compute_entropy(df, col)
+            d[f'entropy_{col}'] = compute_entropy(df, col, nonzero=False)
+            d[f'entropy_nonzero_{col}'] = compute_entropy(df, col, nonzero=True)
 
         tags = file.split('.')[-2]
         rnd, cpu, msg, nrounds, itr, dvfs, rapl = tags.split('_')
@@ -247,6 +284,8 @@ def compute_features_from_logs(loc, N_parallel=4):
         d['joules'] = last_row['joules']
         d['time'] = last_row['timestamp']
         d['edp'] = 0.5 * d['joules'] * d['time']
+        d['n_interrupts'] = df.shape[0]
+        d['n_nonzero_interrupts'] = df[df['rx_bytes']>0].shape[0]
 
         cols = ['rx_desc', 'tx_desc', 'rx_bytes', 'tx_bytes']
         corr = df[cols].corr()
@@ -261,7 +300,7 @@ def compute_features_from_logs(loc, N_parallel=4):
     plist = []
 
     N_current = 0
-    for file in glob.glob(f'{loc}/*.csv'):
+    for file in glob.glob(f'{loc}'):
 
         p = Process(target=featurize, args=(file, data))
         p.start()
@@ -272,16 +311,61 @@ def compute_features_from_logs(loc, N_parallel=4):
         if N_current % N_parallel == 0:
             [p.join() for p in plist]
 
-
     data = list(data)
     data = pd.DataFrame(data)
     data.set_index(['name', 'rnd', 'cpu', 'msg', 'nrounds', 'itr', 'dvfs', 'rapl'], inplace=True)
     
     return data
 
+def fit_pred(df, max_depth):
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.model_selection import train_test_split
+
+    msgs = df['msg'].unique()
+    entropy_cols = [c for c in df.columns if c.find('entropy')>-1]
+    corr_cols = [c for c in df.columns if c.find('corr_')>-1]
+
+    for msg in msgs:
+        print(f'\nMsg = {msg}')
+        df_train, df_test = train_test_split(df, train_size=0.7)
+
+        model = RandomForestRegressor(max_depth=max_depth)
+        model.fit(df_train[entropy_cols + corr_cols], df_train['edp'])
+
+        train_pred = model.predict(df_train[entropy_cols + corr_cols])
+        train_target = df_train['edp']
+
+        test_pred = model.predict(df_test[entropy_cols + corr_cols])
+        test_target = df_test['edp']
+
+        print(f'Train : {((train_pred - train_target)**2).mean()}')
+        print(f'Test  : {((test_pred - test_target)**2).mean()}')
+
+'''
+Tx/Rx bytes:
+    Entropy
+    Correlations
+    Interrupt time-differences?
+    Reward = \Sigma edp per time-step -> r1 + r2 + ... + rT
+'''
 class PolicyGradient:
-    def __init__(self, data):
+    def __init__(self, data, N_inputs, N_nodes, N_layers, activation, output_activation, df):
         self.data = data
+
+        self.policy = PolicyNet(N_inputs, N_nodes, N_layers, activation, output_activation, df)
+
+    def train(self, N_batch_size, T=10):
+        for exp in range(N_batch_size):
+
+            for t in range(T):
+                pass
+                #step 1: construct inputs
+                #step 2: predict action probs
+                #step 3: sample from multinomial distribution (everything discrete here)
+                #step 4: measure instantaneous reward
+
+            #step 5:
+
 
 #map msg size -> (itr, rapl, dvfs)
 class PolicyNet(nn.Module):
