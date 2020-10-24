@@ -1,17 +1,309 @@
 import os
 import matplotlib.pylab as plt
+import matplotlib as mpl
 import numpy as np
 from utils import *
 from constants import *
-#plt.ion()
 
+plt.ion()
+plt.rcParams.update({'font.size': 14})
+pd.set_option('display.max_rows', 50)
+
+#frame.number -e frame.time_epoch -e frame.time_delta_displayed -e ip.src -e ip.dst -e tcp.port -e frame.cap_len -e tcp.window_size -e tcp.analysis.fast_retransmission -e tcp.analysis.retransmission
+#i rx_desc rx_bytes tx_desc tx_bytes instructions cycles ref_cycles llc_miss c3 c6 c7 joules timestamp
+COLS = ['i', 'rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes', 'instructions', 'cycles', 'ref_cycles', 'llc_miss', 'c3', 'c6', 'c7', 'joules', 'timestamp']
+PCAP_COLS = ['frame_number', 'frame_time_epoch', 'frame_time_delta', 'ip_src', 'ip_dst', 'port_src', 'port_dst', 'frame_len', 'tcp_window_size', 'tcp_fast_retransmission', 'tcp_retransmission']
+
+def prepare_scan_all_data(df):
+    #COLS = ['frame_time_epoch', 'frame_time_delta', 'frame_len', 'tcp_window_size', 'tcp_fast_retransmission', 'tcp_retransmission']
+    COLS = ['frame_number', 'ip_src', 'ip_dst', 'port_src', 'port_dst']
+
+    df_mean = df.groupby(COLS).mean()
+    df_std = df.groupby(COLS).std()
+    
+    df_mean.columns = [f'{c}_mean' for c in df_mean.columns]
+    df_std.columns = [f'{c}_std' for c in df_std.columns]
+
+    df_comb = pd.concat([df_mean, df_std], axis=1)
+
+    return df_comb
+
+def netpipe_pcap_tmp_plot(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1900', rapl=135, itrs='2', xax='frame_number', yax='frame_time_delta'):
+    for itr in itrs.split(' '):
+        filename = f'{folder}/tshark.pcap.{run_id}_{core}_{msgs}_5000_{itr}_{dvfs}_135.csv'
+        df = pd.read_csv(filename, sep=',', names=PCAP_COLS, skiprows=500, skipfooter=500)
+        #df['frame_time_delta'] = df['frame_time_delta'].cumsum()
+        fig, ax = plt.subplots()
+        ax.ticklabel_format(style='plain')
+        plt.title(f'MSG={msgs} ITR={itr}')
+        plt.plot(df[xax], df[yax], '*', c='r')
+        plt.legend()
+        plt.grid()
+        plt.xlabel(xax)
+        plt.ylabel(yax)
+        plt.ylim(bottom=0)
+        
+        
+        '''
+        # server -> client
+        df_sc = df[df['ip_dst'] == '192.168.1.11'].copy()
+        fig, ax = plt.subplots()
+        plt.title(f'MSG={msgs} ITR={itr} \n 192.168.1.9->192.168.1.11')
+        plt.plot(df_sc[xax], df_sc[yax], '*', c='r')
+        plt.legend()
+        plt.grid()
+        plt.xlabel(xax)
+        plt.ylabel(yax)
+        plt.ylim(bottom=0)
+        
+        # client->server
+        plt.figure()
+        df_cs = df[df['ip_dst'] == '192.168.1.9'].copy()
+        plt.title(f'MSG={msgs} ITR={itr} \n 192.168.1.11->192.168.1.9')
+        plt.plot(df_cs[xax], df_cs[yax], '*', c='b')
+        plt.legend()
+        plt.grid()
+        plt.xlabel(xax)
+        plt.ylabel(yax)
+        plt.ylim(bottom=0)        
+        '''
+        
+def netpipe_pcap_itr_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', yax='frame_time_delta'):
+    for msg in msgs.split(' '):
+        ty=[]
+        for itr in itrs.split(' '):
+            filename = f'{folder}/tshark.pcap.{run_id}_{core}_{msg}_5000_{itr}_{dvfs}_135.csv'
+            df = pd.read_csv(filename, sep=',', skiprows=500, skipfooter=500, names=PCAP_COLS)
+            df = df[df['ip_dst'] == '192.168.1.11']
+            ty.append(df[yax].mean())
+        fig, ax = plt.subplots()
+        #plt.title(f'RUN_ID={run_id} | MSGS={msgs}')
+        print(itrs, ty)
+        ax.ticklabel_format(style='plain')
+        ax.plot(itrs.split(' '), ty, 'x')         
+        plt.legend()
+        plt.grid()
+        plt.xlabel('ITR')
+        plt.ylabel(yax)
+
+def netpipe_pcap_itr_time_diff(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    time_diff=[]
+    time_diff_std=[]
+    yl = []
+    yu = []
+    for dv in dvfs.split(' '):
+        plt.figure()
+        for msg in msgs.split(' '):
+            for itr in itrs.split(' '):
+                filename = f'{folder}/tshark.pcap.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df = pd.read_csv(filename, sep = ',', names=PCAP_COLS)
+                #frame_time_delta
+                #df['timestamp_diff'] = df['timestamp'].diff()
+
+                ## drop first and last 100 rows
+                df.drop(df.tail(100).index,inplace=True)
+                df.drop(df.head(100).index,inplace=True)
+                
+                df_timestamp_diff_mean = df['frame_time_delta'].mean() * 1000000.0
+                time_diff.append(df_timestamp_diff_mean)
+                
+                df_max = df['frame_time_delta'].max() * 1000000.0
+                df_min = df['frame_time_delta'].min() * 1000000.0                                
+                #df_timestamp_diff_std = df['timestamp_diff'].std() * 1000000.0                
+                #time_diff_std.append(df_timestamp_diff_std)
+                yl.append(df_timestamp_diff_mean-df_min)
+                yu.append(df_max-df_timestamp_diff_mean)
+                #time_diff_std.append([, )
+                #time_diff_std = np.transpose(time_diff_std)
+                
+            #plt.errorbar(x=itrs.split(' '), y=time_diff, yerr=time_diff_std, fmt='*', label=f'MSG={msg}')
+            plt.errorbar(x=itrs.split(' '), y=time_diff, yerr=[yl, yu], fmt='*', label=f'MSG={msg}')            
+            time_diff=[]
+            time_diff_std=[]
+            yl=[]
+            yu=[]
+            plt.xlabel('ITR-Delay')
+        plt.ylabel('mean frame_time_delta (us)')
+        plt.legend()
+        plt.title('Wireshark yerr=[mean-min, max-mean]')
+        plt.ylim(top=300)
+        plt.grid()
+
+        
+def netpipe_pcap_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', yax='frame_time_delta'):
+    itr_min = int(itrs.split(' ')[0])
+    itr_max = int(itrs.split(' ')[len(itrs.split(' '))-1])
+    msg_min = int(msgs.split(' ')[0])
+    msg_max = int(msgs.split(' ')[len(msgs.split(' '))-1])
+    
+    for msg in msgs.split(' '):
+        fig, ax = plt.subplots()
+        plt.title(f'RUN_ID={run_id} | MSGS={msgs} | ITRS={itr_min, itr_max}')        
+        for itr in itrs.split(' '):
+            filename = f'{folder}/tshark.pcap.{run_id}_{core}_{msg}_5000_{itr}_{dvfs}_135.csv'
+            print(f'Reading {filename}')
+            df = pd.read_csv(filename, sep=',', skiprows=500, skipfooter=500, names=PCAP_COLS)
+            df = df[df['ip_dst'] == '192.168.1.11']
+            ax.plot(df['frame_number'], df[yax], 'x', alpha=0.5, label=f'ITR={itr}')
+        ax.ticklabel_format(style='plain')
+        plt.legend()
+        plt.grid()
+        plt.xlabel('frame_number')
+        plt.ylabel('frame_time_delta')
+                                           
+def netpipe_random_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    num_interrupts=[]
+    plt.figure()
+    itr_min = int(itrs.split(' ')[0])
+    itr_max = int(itrs.split(' ')[len(itrs.split(' '))-1])
+
+    msg_min = int(msgs.split(' ')[0])
+    msg_max = int(msgs.split(' ')[len(msgs.split(' '))-1])
+    
+    plt.title(f'RUN_ID={run_id} | MSGS={msg_min}...{msg_max} | ITRS={itr_min}...{itr_max}')
+    if plot_default:
+        for msg in msgs.split(' '):
+            filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_1_0xFFFF_135.csv'
+            df = pd.read_csv(filename, sep = ' ')
+            num_interrupts.append(df.shape[0])
+        plt.plot(msgs.split(' '), num_interrupts, 'x-', label='ITR=Default', color='red')
+        num_interrupts=[]
+        
+    norm = mpl.colors.Normalize(vmin=itr_min, vmax=itr_max)
+    cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.Blues)
+    cmap.set_array([])
+
+    for itr in itrs.split(' '):
+        for msg in msgs.split(' '):        
+            filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dvfs}_135.csv'
+            df = pd.read_csv(filename, sep = ' ')
+            num_interrupts.append(df.shape[0])    
+        plt.plot(msgs.split(' '), num_interrupts, '*-', label='ITR='+itr, c=cmap.to_rgba(int(itr) + 1))
+        num_interrupts=[]    
+    plt.xlabel('MSG_SIZE (Bytes)')
+    plt.ylabel('NUM_INTERRUPTS')
+    plt.legend()
+    plt.grid()
+
+def get_edp(df):
+    df_non0j = df[df['joules']>0].copy()
+    df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
+    df_non0j['joules'] = df_non0j['joules'] - df_non0j['joules'].min()
+    
+    df_non0j['timestamp'] = df_non0j['timestamp'] * TIME_CONVERSION_khz
+    df_non0j['joules'] = df_non0j['joules'] * JOULE_CONVERSION
+    
+    #get edp value
+    last_row = df_non0j.tail(1).iloc[0]
+    edp_val = 0.5 * last_row['joules'] * last_row['timestamp']
+    return edp_val
+                
+def netpipe_edp_compare(folder1='', folder2='', save_loc='', run_id=0, msgs='8192', core=1, dvfs='0x1900', rapl=135, itrs='2'):
+    edp1=[]
+    edp2=[]
+    
+    itr_min = int(itrs.split(' ')[0])
+    itr_max = int(itrs.split(' ')[len(itrs.split(' '))-1])
+
+    for msg in msgs.split(' '):
+        for dv in dvfs.split(' '):
+            for itr in itrs.split(' '):
+                filename1 = f'{folder1}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df = pd.read_csv(filename1, sep = ' ')
+                edp1.append(get_edp(df))
+                
+                filename2 = f'{folder2}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df2 = pd.read_csv(filename2, sep = ' ')
+                edp2.append(get_edp(df2))
+
+            plt.figure()
+            plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}-{itr_max}')
+            plt.plot(itrs.split(' '), edp1, '*', label=f'{folder1}')
+            plt.plot(itrs.split(' '), edp2, '*', label=f'{folder2}')
+            plt.xlabel('ITR-Delay')
+            plt.ylabel('EDP')
+            plt.ylim(bottom=0)
+            plt.legend()
+            plt.grid()
+            if save_loc:
+                plt.savefig(f'{save_loc}/netpipe_edp_compare_{msg}.png')
+            edp1=[]
+            edp2=[]
+
+def netpipe_itr_time_diff(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    time_diff=[]
+    time_diff_std=[]
+    yl = []
+    yu = []
+    for dv in dvfs.split(' '):
+        plt.figure()
+        for msg in msgs.split(' '):
+            for itr in itrs.split(' '):
+                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df = pd.read_csv(filename, sep = ' ')
+                df['timestamp'] = df['timestamp'] * TIME_CONVERSION_khz
+                df['timestamp_diff'] = df['timestamp'].diff()
+
+                ## drop first and last 100 rows
+                df.drop(df.tail(100).index,inplace=True)
+                df.drop(df.head(100).index,inplace=True)
+                
+                df_timestamp_diff_mean = df['timestamp_diff'].mean() * 1000000.0
+                time_diff.append(df_timestamp_diff_mean)
+                
+                df_max = df['timestamp_diff'].max() * 1000000.0
+                df_min = df['timestamp_diff'].min() * 1000000.0                                
+                df_timestamp_diff_std = df['timestamp_diff'].std() * 1000000.0                
+                time_diff_std.append(df_timestamp_diff_std)
+                #yl.append(df_timestamp_diff_mean-df_min)
+                #yu.append(df_max-df_timestamp_diff_mean)
+                
+                
+            plt.errorbar(x=itrs.split(' '), y=time_diff, yerr=time_diff_std, fmt='*', label=f'MSG={msg}')
+            #plt.errorbar(x=itrs.split(' '), y=time_diff, yerr=[yl, yu], fmt='*', label=f'MSG={msg}')            
+            time_diff=[]
+            time_diff_std=[]
+            yl=[]
+            yu=[]
+            plt.xlabel('ITR-Delay')
+        plt.ylabel('mean timestamp diff (us)')
+        plt.title('yerr=[mean-min, max-mean]')
+        plt.legend()
+        plt.grid()
+        #plt.ylim(top=300)                
+
+def netpipe_lowitr(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
+    mitrs =[]
+    for msg in msgs.split(' '):
+        for dv in dvfs.split(' '):
+            min_itr=9999999
+            for itr in itrs.split(' '):
+                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                df = pd.read_csv(filename, sep = ' ')
+                if df.shape[0] < min_itr:
+                    min_itr = df.shape[0]
+            mitrs.append(min_itr)
+    plt.figure()
+    #plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}...{itr_max}')
+    plt.plot(msgs.split(' '), mitrs, '*')
+    plt.xlabel('Message Size')
+    plt.ylabel('Min Num ITRS')
+    plt.grid()
+                
+
+            
 def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
     enl=[]
     edpl=[]
     ovrhl=[]
     nitr=[]
+    tputl=[]
+    itr_min = int(itrs.split(' ')[0])
+    itr_max = int(itrs.split(' ')[len(itrs.split(' '))-1])
 
-    ditr=['']
+    msg_min = int(msgs.split(' ')[0])
+    msg_max = int(msgs.split(' ')[len(msgs.split(' '))-1])
+        
     for msg in msgs.split(' '):
         ## print Linux Default
         if plot_default:
@@ -19,13 +311,14 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
             #print(filename)
             df = pd.read_csv(filename, sep = ' ')
             d = df['rx_bytes'].value_counts()
+
+            ## filter out 0's
             d = d[d.index > 0]
             sumt = df['rx_bytes'].sum()
             total = d.sum()
             d = d/total
             entropy = -(d * np.log(d)).sum()
             enl.append(entropy)
-            #print(f'MSG={msg} ITR=1 DVFS=0xFFFF RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
             print(f'MSG={msg} ITR=1 RX_BYTE_OVERHEAD={(sumt/(float(msg)*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
             ovrhl.append((sumt/(float(msg)*5000)) - 1.0)
             nitr.append(df.shape[0])
@@ -40,14 +333,15 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
             last_row = df_non0j.tail(1).iloc[0]
             edp_val = 0.5 * last_row['joules'] * last_row['timestamp']
             edpl.append(edp_val)
-
-            ditr=['1']
+            tputl.append(int(msg)*5000 / float(last_row['timestamp']))         
                 
         for dv in dvfs.split(' '):
             for itr in itrs.split(' '):
-                filename = f'{folder}/linux.np.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
+                filename = f'{folder}/linux.np.server.log.{run_id}_{core}_{msg}_5000_{itr}_{dv}_135.csv'
                 df = pd.read_csv(filename, sep = ' ')
                 d = df['rx_bytes'].value_counts()
+
+                ## filter out 0's
                 d = d[d.index > 0]
                 sumt = df['rx_bytes'].sum()
                 total = d.sum()
@@ -56,9 +350,11 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
                 entropy = -(d * np.log(d)).sum()
                 enl.append(entropy)
                 #print(f'MSG={msg} ITR={itr} DVFS={dv} RX_BYTE_OVERHEAD={(sumt/(8192*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
-                print(f'MSG={msg} ITR={itr} RX_BYTE_OVERHEAD={(sumt/(float(msg)*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy}')
+                
                 ovrhl.append((sumt/(float(msg)*5000)) - 1.0)
                 nitr.append(df.shape[0])
+
+                df.reset_index(inplace=True)
                 df_non0j = df[df['joules']>0].copy()
                 df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
                 df_non0j['joules'] = df_non0j['joules'] - df_non0j['joules'].min()
@@ -70,35 +366,63 @@ def netpipe_entropy(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rap
                 last_row = df_non0j.tail(1).iloc[0]
                 edp_val = 0.5 * last_row['joules'] * last_row['timestamp']
                 edpl.append(edp_val)
+                tputl.append(int(msg)*5000 / float(last_row['timestamp']))
+
+                lastr = last_row['timestamp']
+
+                # ref cycle diff
+                df_non0j['ref_cycles_diff'] = df_non0j['ref_cycles'].diff()
+                df_non0j['nonidle_timestamp_diff'] = df_non0j['ref_cycles_diff'] * TIME_CONVERSION_khz
+                mmean = df_non0j['nonidle_timestamp_diff'].mean()
+                mmedian = df_non0j['nonidle_timestamp_diff'].median()
+                df_non0j['index_diff'] = df_non0j['index'].diff()
+                imean = df_non0j['index_diff'].mean()
+                imedian = df_non0j['index_diff'].median()
+                istd = df_non0j['index_diff'].std()
+                print(f'MSG={msg} ITR={itr} RX_BYTE_OVERHEAD={(sumt/(float(msg)*5000)) - 1.0} NUM_INTERRUPTS={df.shape[0]} ENTROPY={entropy} TS={lastr} REFCYCLE={mmean, mmedian} index_mean={imean, imedian, istd}')
+
+        
+            if plot_default:
+                xaxisp = ['1']+itrs.split(' ')
+            else:
+                xaxisp = itrs.split(' ')
+
+            #plt.figure()
+            #plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}...{itr_max}')
+            #plt.plot(xaxisp, enl, '*')
+            #plt.xlabel('ITR-Delay')
+            #plt.ylabel('RX_BYTES Entropy')
+            #plt.legend()
+            #plt.grid()
+
+            plt.figure()
+            plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}...{itr_max}')
+            plt.plot(xaxisp, edpl, '*')
+            plt.xlabel('ITR-Delay')
+            plt.ylabel('EDP')
+            plt.grid()
+            
+            plt.figure()
+            plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}...{itr_max}')
+            plt.plot(xaxisp, tputl, '*')
+            plt.xlabel('ITR-Delay')
+            plt.ylabel('Throughput')
+            plt.grid()
+            
+            #plt.figure()
+            #plt.title(f'RUN_ID={run_id} | MSGS={msg} | ITRS={itr_min}...{itr_max}')
+            #plt.plot(xaxisp, nitr, '*')
+            #plt.xlabel('ITR-Delay')
+            #plt.ylabel('NUM INTERRUPTS')
+            #plt.grid()
+
+            enl=[]
+            edpl=[]
+            ovrhl=[]
+            nitr=[]
+            tputl=[]
+
     
-        plt.figure()
-        plt.plot(ditr+itrs.split(' '), enl, '*', c='g')
-        plt.xlabel('ITR-Delay')
-        plt.ylabel('RX_BYTES Entropy')
-        plt.legend()
-        plt.grid()
-
-        plt.figure()
-        #plt.plot(['1']+itrs.split(' '), edpl, 'x', c='r')
-        plt.plot(ditr+itrs.split(' '), edpl, '*', c='g')
-        plt.xlabel('ITR-Delay')
-        plt.ylabel('EDP')
-        plt.grid()
-
-        plt.figure()
-        #plt.plot(['1']+itrs.split(' '), ovrhl, '.', c='b')
-        plt.plot(ditr+itrs.split(' '), ovrhl, '*', c='g')
-        plt.xlabel('ITR-Delay')
-        plt.ylabel('RX_BYTE Overhead')
-        plt.grid()
-
-        plt.figure()
-        #plt.plot(['1']+itrs.split(' '), nitr, '^', c='orange')
-        plt.plot(ditr+itrs.split(' '), nitr, '*', c='g')
-        plt.xlabel('ITR-Delay')
-        plt.ylabel('NUM INTERRUPTS')
-        plt.grid()
-                
 def netpipe_rx_bytes_plots(folder='', run_id=0, msgs='8192', core=1, dvfs='0x1d00', rapl=135, itrs='2', plot_default=False):
     for msg in msgs.split(' '):
         ## plot Linux Default
