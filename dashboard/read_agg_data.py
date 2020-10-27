@@ -1,6 +1,7 @@
 from config import *
 from utils import *
 import pandas as pd
+import numpy as np
 
 #def start_netpipe_analysis(drop_outliers=False, old=False)
 #def start_nodejs_analysis(filename, drop_outliers=False, scale_requests=False)
@@ -9,10 +10,16 @@ import pandas as pd
 
 def start_analysis(workload, drop_outliers=False, **kwargs):
     if workload=='netpipe':
+        #old = kwargs.get('old', False)
         if 'old' not in kwargs:
             kwargs['old'] = False
-
         df_comb, df, outlier_list = start_netpipe_analysis(drop_outliers=drop_outliers, old=kwargs['old'])
+
+    elif workload=='mcdsilo':
+        #scale_requests = kwargs.get('scale_requests', True)
+        if 'scale_requests' not in kwargs:
+            kwargs['scale_requests'] = True
+        df_comb, df, outlier_list = start_mcdsilo_analysis('', drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
 
     return df_comb, df, outlier_list
 
@@ -188,7 +195,8 @@ def start_mcd_analysis(filename, drop_outliers=False, scale_requests=True):
     return df, dfr, outlier_list
 
 def start_mcdsilo_analysis(filename, drop_outliers=False, scale_requests=False):
-    df = pd.read_csv('aug19_mcdsilologs/mcdsilo_combined.csv', sep=' ')
+    #df = pd.read_csv('aug19_mcdsilologs/mcdsilo_combined.csv', sep=' ')
+    df = pd.read_csv('mcdsilo_combined.csv', sep=' ')
 
     df = rename_cols(df)
 
