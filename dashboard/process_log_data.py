@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import operator
 from config import *
 
@@ -7,7 +8,7 @@ from config import *
 * All log files should be "uniformized" in preprocess.py
 '''
 
-def process_rdtsc_limits(ts_filename):
+def process_rdtsc_limits(ts_filename, start_idx=1, end_idx=2):
     '''Note: looking at every entry found in rdtsc file, not just the first one
     '''        
     with open(ts_filename) as f:
@@ -17,7 +18,7 @@ def process_rdtsc_limits(ts_filename):
         time_intervals = []
         for l in lines:
             l_split = l.split()
-            start, end = int(l_split[1]), int(l_split[2])
+            start, end = int(l_split[start_idx]), int(l_split[end_idx])
 
             tval = np.abs(end-start) * TIME_CONVERSION_khz
             if np.abs(tval - 30) < 0.2:
@@ -33,7 +34,7 @@ def process_rdtsc_limits(ts_filename):
         return time_intervals[0]
 
 #TODO: fix ref_cycles for netpipe data
-def process_log_file(filename, ts_filename=None, pass_colnames=True, skiprows=0):
+def process_log_file(filename, ts_filename=None, ts_start_idx=0, ts_end_idx=1, pass_colnames=True, skiprows=0):
     #read log file
     #TODO: remove infer_colnames, skiprows after making log files uniform
     if pass_colnames:
@@ -44,7 +45,9 @@ def process_log_file(filename, ts_filename=None, pass_colnames=True, skiprows=0)
     df.columns = [COL_MAPPER.get(c, c) for c in df.columns]
 
     if ts_filename:
-        start, end, interval_len_sec = process_rdtsc_limits(ts_filename)
+        start, end, interval_len_sec = process_rdtsc_limits(ts_filename, 
+                                                            start_idx=ts_start_idx, 
+                                                            end_idx=ts_end_idx)
 
     #COLS_TO_DIFF = ['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'timestamp']
     COLS_TO_DIFF = ['instructions', 'cycles', 'llc_miss', 'joules', 'timestamp']

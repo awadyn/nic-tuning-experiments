@@ -2,15 +2,20 @@ class Locations:
     aggregate_files_loc = 'summary_data'
 
     netpipe_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
-    netpipe_logs_governor_folder = 'governor'
-    netpipe_logs_tuned_folder = 'rapl135'
+    netpipe_linux_subfolder = 'linux/linux'
+    netpipe_ebbrt_subfolder = 'ebbrt/ebbrt'
 
-    nodejs_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug13_nodejslogs'
-'''
-    nodejs_logs_loc = 
-    mcd_logs_loc = 
-    mcdsilo_logs_loc = 
-'''
+    nodejs_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
+    nodejs_linux_subfolder = 'linux/linux'
+    nodejs_ebbrt_subfolder = 'ebbrt/ebbrt'
+
+    mcd_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
+    mcd_linux_subfolder = 'linux/linux'
+    mcd_ebbrt_subfolder = 'ebbrt/ebbrt'
+
+    mcdsilo_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
+    mcdsilo_linux_subfolder = 'linux/linux'
+    mcdsilo_ebbrt_subfolder = 'ebbrt/ebbrt'
 
 class PlotList:
     timeline_plots_metrics = ['tx_bytes', 'rx_bytes', 'joules_diff', 'timestamp_diff']

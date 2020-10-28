@@ -192,9 +192,6 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
 def update_logfile_plots(workload, msg, clickdata):
     #construct filename
     if workload=='netpipe':
-        #filename = os.path.join(Locations.netpipe_logs_loc,)
-        #filename = '/home/sanjay/sesa-papers/ukpwr/logs/aug19_netpipelogs/governor/linux.dmesg.7_65536_5000_1_0xFFFF_135.csv'
-
         #TODO: check if we can have a clickdata default in Graph
         if clickdata:
             custom_data = clickdata['points'][0]['customdata']
@@ -204,20 +201,24 @@ def update_logfile_plots(workload, msg, clickdata):
         assert(len(custom_data)==5)
         itr, rapl, dvfs, _, sys = custom_data
 
-        if sys=='linux' and itr==1 and dvfs.lower()=='0xffff': 
-            folder = 'governor'
-        else: 
-            folder = 'rapl135'
-
         #TODO: add selector for run number (the "1" after dmesg)
-        filename = os.path.join(Locations.netpipe_logs_loc, folder, f'{sys}.dmesg.1_{msg}_5000_{itr}_{dvfs}_{rapl}.csv')    
-        print('Netpipe', filename)    
+        if sys=='linux':
+            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_linux_subfolder)
+            ts_filename = None
+            pass_colnames = False
         
-        skiprows = 0
-        pass_colnames = True
+        elif sys=='ebbrt':
+            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_ebbrt_subfolder)
+            ts_filename = None
+            pass_colnames = True
+
+        skiprows = 1
+        ts_start_idx = None
+        ts_end_idx = None
+    
+        print('Netpipe', filename)    
 
     elif workload=='nodejs':
-
         #TODO: check if we can have a clickdata default in Graph
         if clickdata:
             custom_data = clickdata['points'][0]['customdata']
@@ -227,18 +228,91 @@ def update_logfile_plots(workload, msg, clickdata):
         assert(len(custom_data)==5)
         itr, rapl, dvfs, _, sys = custom_data
 
-        ostag = 'node' if sys=='linux' else 'ebbrt'
-        extension = '.csv' if sys=='ebbrt' else ''
-        filename = os.path.join(Locations.nodejs_logs_loc, f'{ostag}_dmesg.1_1_{itr}_{dvfs}_{rapl}{extension}')
+        #TODO: add selector for run number (the "1" after dmesg)
+        if sys=='linux':
+            filename = os.path.join(Locations.nodejs_logs_loc, Locations.nodejs_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}')
+            ts_filename = os.path.join(Locations.nodejs_logs_loc, Locations.nodejs_linux_subfolder, f'node_rdtsc.9_1_{itr}_{dvfs}_{rapl}')
+            pass_colnames = False
+            skiprows = 1
+            ts_start_idx = 1
+            ts_end_idx = 2
+        
+        elif sys=='ebbrt':
+            filename = os.path.join(Locations.nodejs_logs_loc, Locations.nodejs_ebbrt_subfolder, f'ebbrt_dmesg.9_1_{itr}_{dvfs}_{rapl}.csv')
+            ts_filename = os.path.join(Locations.nodejs_logs_loc, Locations.nodejs_ebbrt_subfolder, f'ebbrt_rdtsc.9_{itr}_{dvfs}_{rapl}')
+            pass_colnames = True
+            skiprows = 1
+            ts_start_idx = 0
+            ts_end_idx = 1
+    
+        print('NodeJS', filename, ts_filename)
 
-        print('NodeJS', filename)
+    elif workload=='mcd':
+        #TODO: check if we can have a clickdata default in Graph
+        if clickdata:
+            custom_data = clickdata['points'][0]['customdata']
+        else:
+            custom_data = [1, 135, '0xffff', 'linux default', 'linux']
 
-        skiprows = 1
-        pass_colnames = False
+        assert(len(custom_data)==5)
+        itr, rapl, dvfs, _, sys = custom_data
+
+        #TODO: add selector for run number (the "1" after dmesg)
+        if sys=='linux':
+            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}')
+            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'node_rdtsc.9_1_{itr}_{dvfs}_{rapl}')
+            pass_colnames = False
+            skiprows = 1
+            ts_start_idx = 1
+            ts_end_idx = 2
+        
+        elif sys=='ebbrt':
+            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_dmesg.9_1_{itr}_{dvfs}_{rapl}.csv')
+            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_rdtsc.9_{itr}_{dvfs}_{rapl}')
+            pass_colnames = True
+            skiprows = 1
+            ts_start_idx = 0
+            ts_end_idx = 1
+    
+        print('Memcached', filename, ts_filename)
+
+    elif workload=='mcdsilo':
+        #TODO: check if we can have a clickdata default in Graph
+        if clickdata:
+            custom_data = clickdata['points'][0]['customdata']
+        else:
+            custom_data = [1, 135, '0xffff', 'linux default', 'linux']
+
+        assert(len(custom_data)==5)
+        itr, rapl, dvfs, _, sys = custom_data
+
+        #TODO: add selector for run number (the "1" after dmesg)
+        if sys=='linux':
+            filename = os.path.join(Locations.mcdsilo_logs_loc, Locations.mcdsilo_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}')
+            ts_filename = os.path.join(Locations.mcdsilo_logs_loc, Locations.mcdsilo_linux_subfolder, f'node_rdtsc.9_1_{itr}_{dvfs}_{rapl}')
+            pass_colnames = False
+            skiprows = 1
+            ts_start_idx = 1
+            ts_end_idx = 2
+        
+        elif sys=='ebbrt':
+            filename = os.path.join(Locations.mcdsilo_logs_loc, Locations.mcdsilo_ebbrt_subfolder, f'ebbrt_dmesg.9_1_{itr}_{dvfs}_{rapl}.csv')
+            ts_filename = os.path.join(Locations.mcdsilo_logs_loc, Locations.mcdsilo_ebbrt_subfolder, f'ebbrt_rdtsc.9_{itr}_{dvfs}_{rapl}')
+            pass_colnames = True
+            skiprows = 1
+            ts_start_idx = 0
+            ts_end_idx = 1
+    
+        print('Memcached Silo', filename, ts_filename)
 
     #read log file
     #TODO: time scaling for nodejs logs
-    df, df_orig = process_log_file(filename, ts_filename=None, skiprows=skiprows, pass_colnames=pass_colnames)
+    df, df_orig = process_log_file(filename, 
+                                   ts_filename=ts_filename, 
+                                   ts_start_idx=ts_start_idx,
+                                   ts_end_idx=ts_end_idx,
+                                   pass_colnames=pass_colnames, 
+                                   skiprows=skiprows)
 
     print(df.columns)
     print(df.head())
