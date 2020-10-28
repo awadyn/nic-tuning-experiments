@@ -10,7 +10,7 @@ from config import *
 def process_rdtsc_limits(ts_filename):
     '''Note: looking at every entry found in rdtsc file, not just the first one
     '''        
-    with open(tsc_filename) as f:
+    with open(ts_filename) as f:
         lines = f.readlines()
         lines = [l for l in lines if len(l)>0]
         
