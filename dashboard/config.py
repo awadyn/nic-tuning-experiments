@@ -1,4 +1,3 @@
-
 class Locations:
     aggregate_files_loc = 'summary_data'
 

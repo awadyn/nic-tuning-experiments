@@ -1,10 +1,36 @@
 import pandas as pd
+import operator
 from config import *
 
 '''
 * Don't do filename processing here.
 * All log files should be "uniformized" in preprocess.py
 '''
+
+def process_rdtsc_limits(ts_filename):
+    '''Note: looking at every entry found in rdtsc file, not just the first one
+    '''        
+    with open(tsc_filename) as f:
+        lines = f.readlines()
+        lines = [l for l in lines if len(l)>0]
+        
+        time_intervals = []
+        for l in lines:
+            l_split = l.split()
+            start, end = int(l_split[1]), int(l_split[2])
+
+            tval = np.abs(end-start) * TIME_CONVERSION_khz
+            if np.abs(tval - 30) < 0.2:
+                print(f'Found time interval: {tval}')
+                time_intervals.append((start, end, tval))
+
+        if len(time_intervals)==0:
+            raise ValueError("Didn't find valid time interval")
+        if len(time_intervals)>1:
+            raise ValueError("Found multiple time intervals")
+
+
+        return time_intervals[0]
 
 #TODO: fix ref_cycles for netpipe data
 def process_log_file(filename, ts_filename=None, pass_colnames=True, skiprows=0):
@@ -17,39 +43,9 @@ def process_log_file(filename, ts_filename=None, pass_colnames=True, skiprows=0)
 
     df.columns = [COL_MAPPER.get(c, c) for c in df.columns]
 
-    #demarcate timestamps - needs fixing
     if ts_filename:
+        start, end, interval_len_sec = process_rdtsc_limits(ts_filename)
 
-        found_time_interval = False
-        with open(tsc_file) as f:
-            lines = f.readlines()
-            lines = [l for l in lines if len(l)>0]
-            if len(lines) != 3:
-                raise ValueError(f'{filename} found !=3 tsc limits')
-            
-            for l in lines:
-                l_split = l.split()
-                start, end = int(l_split[1]), int(l_split[2])
-
-                tval = np.abs(end-start) * TIME_CONVERSION_khz
-                if np.abs(tval - 30) < 0.2:
-                    print(f'Found time interval: {tval}')
-                    found_time_interval = True
-                    break
-
-            if not found_time_interval:
-                raise ValueError("Didn't find valid time interval")
-            print(f'Using time interval: {tval}')
-
-        with open(tsc_file) as f:
-            lines = f.readlines()
-            lines = [l for l in lines if len(l)>0]
-            if len(lines) != 1:
-                raise ValueError(f'{filename} found multiple tsc limits')
-            start, end = [int(l) for l in lines[0].split()]
-            print(start, end)
-
-    #
     #COLS_TO_DIFF = ['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'timestamp']
     COLS_TO_DIFF = ['instructions', 'cycles', 'llc_miss', 'joules', 'timestamp']
 

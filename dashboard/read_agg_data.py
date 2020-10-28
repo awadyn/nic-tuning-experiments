@@ -16,6 +16,7 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
             kwargs['old'] = False
         df_comb, df, outlier_list = start_netpipe_analysis(drop_outliers=drop_outliers, old=kwargs['old'])
 
+    #TODO: probably can combine the following three (maybe netpipe too)
     elif workload=='nodejs':
         filename = os.path.join(Locations.aggregate_files_loc, 'nodejs_8_4.csv')
 
@@ -23,6 +24,13 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
             kwargs['scale_requests'] = True
 
         df_comb, df, outlier_list = start_nodejs_analysis(filename, drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+
+    elif workload=='mcd':
+        #scale_requests = kwargs.get('scale_requests', True)
+        if 'scale_requests' not in kwargs:
+            kwargs['scale_requests'] = True
+        df_comb, df, outlier_list = start_mcdsilo_analysis('', drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+
 
     elif workload=='mcdsilo':
         #scale_requests = kwargs.get('scale_requests', True)

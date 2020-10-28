@@ -1,6 +1,8 @@
 from config import *
 import pandas as pd
 
+
+#TODO: should remove this and just use mapper in config.py
 def rename_cols(df):
     cols = []
     for c in df.columns:

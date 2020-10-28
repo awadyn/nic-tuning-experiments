@@ -91,7 +91,12 @@ app.layout = html.Div([
         dcc.Graph(
             id='timeline-timestamp_diff',
             style={'display': 'inline-block'},
-        ),        
+        ),
+
+        dcc.Graph(
+            id='barplot',
+            style={'display': 'inline-block'}
+        ),
 
     ])
 
@@ -107,7 +112,7 @@ def update_radio_button(workload):
         options = [{'label': key, 'value': key} for key in netpipe_msg_sizes]
         value = 8192
 
-    elif workload=='mcdsilo':
+    elif workload=='mcd' or workload=='mcdsilo':
         options = [{'label': key, 'value': key} for key in mcd_qps_sizes]
         value = 200000
 
@@ -140,6 +145,7 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
     
     if workload=='netpipe':
         df_comb = df_comb[df_comb['msg']==msg]
+
     elif workload=='mcdsilo':
         df_comb = df_comb[df_comb['QPS']==msg]
 
@@ -178,12 +184,12 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
     Output('timeline-rx-bytes', 'figure'),
     Output('timeline-joules_diff', 'figure'),
     Output('timeline-timestamp_diff', 'figure'),
-
+    #Output('barplot', 'figure'),
     [Input('workload-selector', 'value'),
      Input('netpipe-msg-selector', 'value'),
      Input('aggregate-scatter', 'clickData')], #TODO: this shouldn't be netpipe specific
 )
-def update_timeline_plots(workload, msg, clickdata):
+def update_logfile_plots(workload, msg, clickdata):
     #construct filename
     if workload=='netpipe':
         #filename = os.path.join(Locations.netpipe_logs_loc,)
@@ -208,7 +214,7 @@ def update_timeline_plots(workload, msg, clickdata):
         print('Netpipe', filename)    
         
         skiprows = 0
-        pass_colnames = False
+        pass_colnames = True
 
     elif workload=='nodejs':
 
@@ -228,9 +234,10 @@ def update_timeline_plots(workload, msg, clickdata):
         print('NodeJS', filename)
 
         skiprows = 1
-        pass_colnames = True
+        pass_colnames = False
 
     #read log file
+    #TODO: time scaling for nodejs logs
     df, df_orig = process_log_file(filename, ts_filename=None, skiprows=skiprows, pass_colnames=pass_colnames)
 
     print(df.columns)
@@ -251,6 +258,9 @@ def update_timeline_plots(workload, msg, clickdata):
                          labels={'timestamp': 'Time(s)', m: m},
                          title=f'Timeline for metric = {m}')
         fig_list.append(fig)
+
+    #barplot
+
 
     return tuple(fig_list)
 
