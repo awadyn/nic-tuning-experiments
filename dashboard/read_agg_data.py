@@ -2,6 +2,7 @@ from config import *
 from utils import *
 import pandas as pd
 import numpy as np
+import os
 
 #def start_netpipe_analysis(drop_outliers=False, old=False)
 #def start_nodejs_analysis(filename, drop_outliers=False, scale_requests=False)
@@ -15,6 +16,14 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
             kwargs['old'] = False
         df_comb, df, outlier_list = start_netpipe_analysis(drop_outliers=drop_outliers, old=kwargs['old'])
 
+    elif workload=='nodejs':
+        filename = os.path.join(Locations.aggregate_files_loc, 'nodejs_8_4.csv')
+
+        if 'scale_requests' not in kwargs:
+            kwargs['scale_requests'] = True
+
+        df_comb, df, outlier_list = start_nodejs_analysis(filename, drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+
     elif workload=='mcdsilo':
         #scale_requests = kwargs.get('scale_requests', True)
         if 'scale_requests' not in kwargs:
@@ -27,10 +36,11 @@ def start_netpipe_analysis(drop_outliers=False, old=False):
     N_ROUNDS = 5000
 
     if old:
-        df_fixed = pd.read_csv('jul20data.csv')
+        df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'jul20data.csv'))
     else:
-        df_fixed = pd.read_csv('aug11data.csv') #truncated logs for 512k fixed
-    df_gov = pd.read_csv('jul20data_governor.csv')
+        df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'aug11data.csv')) #truncated logs for 512k fixed
+    
+    df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'jul20data_governor.csv'))
 
     df_fixed = rename_cols(df_fixed)
     df_gov = rename_cols(df_gov)

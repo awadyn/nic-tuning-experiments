@@ -1,11 +1,12 @@
 
 class Locations:
-    aggregate_files_loc = ''
+    aggregate_files_loc = 'summary_data'
 
-    netpipe_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug19_netpipelogs'
+    netpipe_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
     netpipe_logs_governor_folder = 'governor'
     netpipe_logs_tuned_folder = 'rapl135'
 
+    nodejs_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug13_nodejslogs'
 '''
     nodejs_logs_loc = 
     mcd_logs_loc = 
@@ -30,3 +31,17 @@ COLORMAPS = {'linux_tuned': 'Greens',
 
 netpipe_msg_sizes = [64, 8192, 65536, 524288]
 mcd_qps_sizes = [200000, 400000, 600000]
+
+
+#nodejs -> netpipe colnames
+COL_MAPPER = {'ins': 'instructions',
+              'JOULE': 'joules',
+              'TSC': 'timestamp',
+              'rxdesc': 'rx_desc',
+              'rxbytes': 'rx_bytes',
+              'txdesc': 'tx_desc',
+              'txbytes': 'tx_bytes',
+              'cyc': 'cycles',
+              'refcyc': 'ref_cycles',
+              'llcm': 'llc_miss',
+            }

@@ -6,9 +6,16 @@ from config import *
 * All log files should be "uniformized" in preprocess.py
 '''
 
-def process_log_file(filename, ts_filename=None):
+#TODO: fix ref_cycles for netpipe data
+def process_log_file(filename, ts_filename=None, pass_colnames=True, skiprows=0):
     #read log file
-    df = pd.read_csv(filename, sep = ' ')
+    #TODO: remove infer_colnames, skiprows after making log files uniform
+    if pass_colnames:
+        df = pd.read_csv(filename, sep = ' ', names=COLS, skiprows=skiprows)
+    else:
+        df = pd.read_csv(filename, sep = ' ', skiprows=skiprows)
+
+    df.columns = [COL_MAPPER.get(c, c) for c in df.columns]
 
     #demarcate timestamps - needs fixing
     if ts_filename:
@@ -42,10 +49,9 @@ def process_log_file(filename, ts_filename=None):
             start, end = [int(l) for l in lines[0].split()]
             print(start, end)
 
-
-
     #
-    COLS_TO_DIFF = ['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'timestamp']
+    #COLS_TO_DIFF = ['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'timestamp']
+    COLS_TO_DIFF = ['instructions', 'cycles', 'llc_miss', 'joules', 'timestamp']
 
     #----------
     #every interrupt
@@ -76,8 +82,8 @@ def process_log_file(filename, ts_filename=None):
     #----------
 
     #compute busy time
-    df['nonidle_timestamp_diff'] = df['ref_cycles_diff'] * TIME_CONVERSION_khz
-    df['nonidle_frac_diff'] = df['nonidle_timestamp_diff'] / df['timestamp_diff']
+    #df['nonidle_timestamp_diff'] = df['ref_cycles_diff'] * TIME_CONVERSION_khz
+    #df['nonidle_frac_diff'] = df['nonidle_timestamp_diff'] / df['timestamp_diff']
     
     return df, df_orig
 
