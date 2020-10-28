@@ -203,12 +203,12 @@ def update_logfile_plots(workload, msg, clickdata):
 
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
-            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_linux_subfolder)
+            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_linux_subfolder, f'dmesg_devicelog.0_{msg}_5000_{itr}_{dvfs}_{rapl}')
             ts_filename = None
             pass_colnames = False
         
         elif sys=='ebbrt':
-            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_ebbrt_subfolder)
+            filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_ebbrt_subfolder, f'ebbrt.dmesg.5_{msg}_5000_{itr}_{dvfs}_{rapl}')
             ts_filename = None
             pass_colnames = True
 
@@ -259,16 +259,16 @@ def update_logfile_plots(workload, msg, clickdata):
 
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
-            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}')
-            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'node_rdtsc.9_1_{itr}_{dvfs}_{rapl}')
+            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'mcd_dmesg.0_4_{itr}_{dvfs}_{rapl}_{qps}')
+            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'mcd_rdtsc.4_{itr}_{dvfs}_{rapl}_{qps}')
             pass_colnames = False
             skiprows = 1
-            ts_start_idx = 1
-            ts_end_idx = 2
+            ts_start_idx = 2
+            ts_end_idx = 3
         
         elif sys=='ebbrt':
-            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_dmesg.9_1_{itr}_{dvfs}_{rapl}.csv')
-            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_rdtsc.9_{itr}_{dvfs}_{rapl}')
+            filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_dmesg.0_4_{itr}_{dvfs}_{rapl}_{qps}.csv')
+            ts_filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_ebbrt_subfolder, f'ebbrt_rdtsc.9_{itr}_{dvfs}_{rapl}_{qps}')
             pass_colnames = True
             skiprows = 1
             ts_start_idx = 0
@@ -352,4 +352,5 @@ Comparison between two selections
 '''
 
 if __name__=='__main__':
-    app.run_server(debug=True)
+    #app.run_server(debug=True)
+    app.run_server(host='10.241.31.7', port='8050')
