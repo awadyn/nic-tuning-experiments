@@ -63,6 +63,11 @@ app.layout = html.Div([
             id='aggregate-scatter',
             style={'display': 'inline-block'},
         ),
+        dcc.Graph(
+            id='aggregate-scatter2',
+            style={'display': 'inline-block'},
+        ),
+
     ],
     #style={'width': '49%', 'display': 'inline-block'}),
     ),
@@ -72,34 +77,33 @@ app.layout = html.Div([
     #]),
 
     #TODO: should be updated dynamically
-    html.Div([
-        dcc.Graph(
-            id='timeline-tx-bytes',
-            style={'display': 'inline-block'},
-        ),
+    #html.Div([
+    #    dcc.Graph(
+    #        id='timeline-tx-bytes',
+    #        style={'display': 'inline-block'},
+    #    ),
 
-        dcc.Graph(
-            id='timeline-rx-bytes',
-            style={'display': 'inline-block'},
-        ),
+    #    dcc.Graph(
+    #        id='timeline-rx-bytes',
+    #        style={'display': 'inline-block'},
+    #    ),
 
-        dcc.Graph(
-            id='timeline-joules_diff',
-            style={'display': 'inline-block'},
-        ),        
+    #    dcc.Graph(
+    #        id='timeline-joules_diff',
+    #        style={'display': 'inline-block'},
+    #    ),        
 
-        dcc.Graph(
-            id='timeline-timestamp_diff',
-            style={'display': 'inline-block'},
-        ),
+    #    dcc.Graph(
+    #        id='timeline-timestamp_diff',
+    #        style={'display': 'inline-block'},
+    #    ),
 
-        dcc.Graph(
-            id='barplot',
-            style={'display': 'inline-block'}
-        ),
+    #    dcc.Graph(
+    #        id='barplot',
+    #        style={'display': 'inline-block'}
+    #    ),
 
-    ])
-
+    #])
 ])
 
 @app.callback(
@@ -124,6 +128,7 @@ def update_radio_button(workload):
 
 @app.callback(
     Output('aggregate-scatter', 'figure'),
+    Output('aggregate-scatter2', 'figure'),
     #Output('aggregate-table', 'data'),
     #Output('aggregate-table', 'columns'),
     [Input('workload-selector', 'value'),
@@ -161,9 +166,21 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
                          error_y='joules_std', 
                          color='Sys',
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
-                         hover_data=['itr', 'rapl', 'dvfs', 'Sys'], 
+                         hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
+
+        fig2 = px.scatter(df_comb, 
+                          x='instructions_mean', 
+                          y='joules_mean', 
+                          error_x='instructions_std', 
+                          error_y='joules_std', 
+                          color='Sys',
+                          labels={'ins_mean': 'Instructions', 'joules_mean': 'Energy (Joules)'}, 
+                          hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
+                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
+                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
+
 
     else:
         fig = px.scatter(df_comb, 
@@ -172,13 +189,24 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
                          color='Sys',
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
                          hover_data=['itr', 'rapl', 'dvfs', 'Sys'], 
-                         custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
+                         custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys', 'instructions_mean'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
+        fig2 = px.scatter(df_comb, 
+                          x='instructions_mean', 
+                          y='joules_mean', 
+                          color='Sys',
+                          labels={'ins_mean': 'Instructions', 'joules_mean': 'Energy (Joules)'}, 
+                          hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
+                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
+                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
-    return fig #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
+
+
+    return fig, fig2 #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
 
 #TODO: don't hardcode number of outputs. should be dynamic based on len(timeline_plot_metrics)
+'''
 @app.callback(
     Output('timeline-tx-bytes', 'figure'),
     Output('timeline-rx-bytes', 'figure'),
@@ -190,6 +218,7 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
      Input('aggregate-scatter', 'clickData')], #TODO: this shouldn't be netpipe specific
 )
 def update_logfile_plots(workload, msg, clickdata):
+    pass
     #construct filename
     if workload=='netpipe':
         #TODO: check if we can have a clickdata default in Graph
@@ -334,6 +363,7 @@ def update_logfile_plots(workload, msg, clickdata):
 
 
     return tuple(fig_list)
+'''
 
 '''
 Plots:
@@ -349,5 +379,5 @@ Comparison between two selections
 '''
 
 if __name__=='__main__':
-    #app.run_server(debug=True)
-    app.run_server(host='10.241.31.7', port='8050')
+    app.run_server(debug=True)
+    #app.run_server(host='10.241.31.7', port='8050')

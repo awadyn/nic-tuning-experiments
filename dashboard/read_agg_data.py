@@ -11,45 +11,33 @@ import os
 
 def start_analysis(workload, drop_outliers=False, **kwargs):
     if workload=='netpipe':
-        #old = kwargs.get('old', False)
-        if 'old' not in kwargs:
-            kwargs['old'] = False
-        df_comb, df, outlier_list = start_netpipe_analysis(drop_outliers=drop_outliers, old=kwargs['old'])
+        df_comb, df, outlier_list = start_netpipe_analysis(drop_outliers=drop_outliers)
 
     #TODO: probably can combine the following three (maybe netpipe too)
     elif workload=='nodejs':
-        filename = os.path.join(Locations.aggregate_files_loc, 'nodejs_8_4.csv')
-
         if 'scale_requests' not in kwargs:
             kwargs['scale_requests'] = True
 
-        df_comb, df, outlier_list = start_nodejs_analysis(filename, drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+        df_comb, df, outlier_list = start_nodejs_analysis(drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
 
     elif workload=='mcd':
         #scale_requests = kwargs.get('scale_requests', True)
         if 'scale_requests' not in kwargs:
             kwargs['scale_requests'] = True
-        df_comb, df, outlier_list = start_mcdsilo_analysis('', drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+        df_comb, df, outlier_list = start_mcd_analysis(drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
 
-
-    elif workload=='mcdsilo':
-        filename = os.path.join(Locations.aggregate_files_loc, 'mcdsilo_combined.csv')
-    
+    elif workload=='mcdsilo':    
         #scale_requests = kwargs.get('scale_requests', True)
         if 'scale_requests' not in kwargs:
             kwargs['scale_requests'] = True
-        df_comb, df, outlier_list = start_mcdsilo_analysis('', drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
+        df_comb, df, outlier_list = start_mcdsilo_analysis(drop_outliers=drop_outliers, scale_requests=kwargs['scale_requests'])
 
     return df_comb, df, outlier_list
 
-def start_netpipe_analysis(drop_outliers=False, old=False):
+def start_netpipe_analysis(drop_outliers=False):
     N_ROUNDS = 5000
 
-    if old:
-        df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'jul20data.csv'))
-    else:
-        df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'aug11data.csv')) #truncated logs for 512k fixed
-    
+    df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'aug11data.csv')) #truncated logs for 512k fixed
     df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'jul20data_governor.csv'))
 
     df_fixed = rename_cols(df_fixed)
@@ -84,8 +72,8 @@ def start_netpipe_analysis(drop_outliers=False, old=False):
 
     return df_comb, df, outlier_list
 
-def start_nodejs_analysis(filename, drop_outliers=False, scale_requests=False):
-    df = pd.read_csv(filename, sep=' ')
+def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'nodejs_8_4.csv'), sep=' ')
 
     df.drop(['START_RDTSC', 'END_RDTSC'], axis=1, inplace=True)
 
@@ -139,9 +127,12 @@ def start_nodejs_analysis(filename, drop_outliers=False, scale_requests=False):
 
     return df, dfr, outlier_list
 
-def start_mcd_analysis(filename, drop_outliers=False, scale_requests=True):
+def start_mcd_analysis(drop_outliers=False, scale_requests=True):
     '''TODO: Merge with start_nodejs_analysis'''
-    df = pd.read_csv(filename, sep=' ')
+    df_linux = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'linux_mcd.csv'), sep=' ')
+    #df_ebbrt = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'ebbrt_mcd.csv'), sep=' ')
+    #df = pd.concat([df_linux, df_ebbrt], axis=0)
+    df = df_linux
 
     df = rename_cols(df)
 
@@ -214,9 +205,9 @@ def start_mcd_analysis(filename, drop_outliers=False, scale_requests=True):
 
     return df, dfr, outlier_list
 
-def start_mcdsilo_analysis(filename, drop_outliers=False, scale_requests=False):
+def start_mcdsilo_analysis(drop_outliers=False, scale_requests=True):
     #df = pd.read_csv('aug19_mcdsilologs/mcdsilo_combined.csv', sep=' ')
-    df = pd.read_csv('mcdsilo_combined.csv', sep=' ')
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'mcdsilo_combined.csv'), sep=' ')
 
     df = rename_cols(df)
 

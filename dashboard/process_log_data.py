@@ -30,8 +30,10 @@ def process_rdtsc_limits(ts_filename, start_idx=1, end_idx=2):
         if len(time_intervals)>1:
             raise ValueError("Found multiple time intervals")
 
-
         return time_intervals[0]
+
+def process_out_file_scale(out_file):
+    pass
 
 #TODO: fix ref_cycles for netpipe data
 def process_log_file(filename, ts_filename=None, ts_start_idx=0, ts_end_idx=1, pass_colnames=True, skiprows=0):
