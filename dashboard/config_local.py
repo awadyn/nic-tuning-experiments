@@ -1,21 +1,21 @@
 class Locations:
     aggregate_files_loc = 'summary_data'
 
-    netpipe_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
-    netpipe_linux_subfolder = 'linux/linux'
-    netpipe_ebbrt_subfolder = 'ebbrt/ebbrt'
+    netpipe_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug19_netpipelogs/rapl135'
+    netpipe_linux_subfolder = 'governor'
+    netpipe_ebbrt_subfolder = 'rapl135'
 
-    nodejs_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
-    nodejs_linux_subfolder = 'linux/linux'
-    nodejs_ebbrt_subfolder = 'ebbrt/ebbrt'
+    nodejs_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug14_nodejslogs'
+    nodejs_linux_subfolder = ''
+    nodejs_ebbrt_subfolder = ''
 
-    mcd_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
-    mcd_linux_subfolder = 'linux/linux'
-    mcd_ebbrt_subfolder = 'ebbrt/ebbrt'
+    mcd_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug19_mcdlogs'
+    mcd_linux_subfolder = ''
+    mcd_ebbrt_subfolder = ''
 
-    mcdsilo_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/jul20'
-    mcdsilo_linux_subfolder = 'linux/linux'
-    mcdsilo_ebbrt_subfolder = 'ebbrt/ebbrt'
+    mcdsilo_logs_loc = '/home/sanjay/sesa-papers/ukpwr/logs/aug19_mcdsilologs'
+    mcdsilo_linux_subfolder = ''
+    mcdsilo_ebbrt_subfolder = ''
 
 class PlotList:
     timeline_plots_metrics = ['tx_bytes', 'rx_bytes', 'joules_diff', 'timestamp_diff']

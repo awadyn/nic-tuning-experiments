@@ -10,19 +10,6 @@ from config import *
 from read_agg_data import *
 from process_log_data import *
 
-'''
-Netpipe:
-    Add all plots
-
-Other workloads:
-    Hook upto data
-
-Layout etc.
-
-Deployment:
-    Web server on kd
-'''
-
 #Home-spun caching
 agg_data = {}
 log_data = {}
@@ -43,6 +30,14 @@ app.layout = html.Div([
         ),
 
         #TODO: combine netpipe and mcdsilo selectors. the should be populated by workload but keep one element
+        dcc.Dropdown(id='sys-selector', value='linux'),
+        dcc.Dropdown(id='itr-selector', value=1),
+        dcc.Dropdown(id='dvfs-selector', value='0xFFFF'),
+        dcc.Dropdown(id='rapl-selector', value=135),
+        dcc.Dropdown(id='df-selector', value='Interrupts', options=[{'label': 'Interrupts', 'value': 'Interrupts'}, {'label': 'Energy', 'value': 'Energy'}]),
+        dcc.Dropdown(id='xaxis-selector', value='timestamp'),
+        dcc.Dropdown(id='yaxis-selector', value='tx_bytes'),
+
         dcc.RadioItems(
             id = 'netpipe-msg-selector',
             value = None
@@ -64,38 +59,13 @@ app.layout = html.Div([
             style={'display': 'inline-block'},
         ),
     ],
-    #style={'width': '49%', 'display': 'inline-block'}),
     ),
-
-    #html.Div([
-    #    dash_table.DataTable(id='aggregate-table')
-    #]),
 
     #TODO: should be updated dynamically
     html.Div([
         dcc.Graph(
-            id='timeline-tx-bytes',
+            id='custom-scatter',
             style={'display': 'inline-block'},
-        ),
-
-        dcc.Graph(
-            id='timeline-rx-bytes',
-            style={'display': 'inline-block'},
-        ),
-
-        dcc.Graph(
-            id='timeline-joules_diff',
-            style={'display': 'inline-block'},
-        ),        
-
-        dcc.Graph(
-            id='timeline-timestamp_diff',
-            style={'display': 'inline-block'},
-        ),
-
-        dcc.Graph(
-            id='barplot',
-            style={'display': 'inline-block'}
         ),
 
     ])
@@ -124,8 +94,13 @@ def update_radio_button(workload):
 
 @app.callback(
     Output('aggregate-scatter', 'figure'),
-    #Output('aggregate-table', 'data'),
-    #Output('aggregate-table', 'columns'),
+    Output('sys-selector', 'options'),
+    Output('itr-selector', 'options'),
+    Output('dvfs-selector', 'options'),
+    Output('rapl-selector', 'options'),
+    Output('xaxis-selector', 'options'),
+    Output('yaxis-selector', 'options'),
+
     [Input('workload-selector', 'value'),
      Input('netpipe-msg-selector', 'value'),
      Input('aggregate-error-bar-selector', 'value')]
@@ -176,31 +151,45 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
 
-    return fig #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
+    Output('sys-selector', 'value'),
+    Output('itr-selector', 'value'),
+    Output('dvfs-selector', 'value'),
+    Output('rapl-selector', 'value'),
+
+    sys_selector = [{'label': k, 'value': k} for k in df_comb['sys'].unique()]
+    itr_selector = [{'label': k, 'value': k} for k in df_comb['itr'].unique()]
+    dvfs_selector = [{'label': k, 'value': k} for k in df_comb['dvfs'].unique()]
+    rapl_selector = [{'label': k, 'value': k} for k in df_comb['rapl'].unique()]
+
+    xaxis_selector = yaxis_selector = [{'label': k, 'value': k} for k in COLS]
+
+    return fig, sys_selector, itr_selector, dvfs_selector, rapl_selector, xaxis_selector, yaxis_selector #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
 
 #TODO: don't hardcode number of outputs. should be dynamic based on len(timeline_plot_metrics)
 @app.callback(
-    Output('timeline-tx-bytes', 'figure'),
-    Output('timeline-rx-bytes', 'figure'),
-    Output('timeline-joules_diff', 'figure'),
-    Output('timeline-timestamp_diff', 'figure'),
-    #Output('barplot', 'figure'),
+    Output('custom-scatter', 'figure'),
     [Input('workload-selector', 'value'),
      Input('netpipe-msg-selector', 'value'),
-     Input('aggregate-scatter', 'clickData')], #TODO: this shouldn't be netpipe specific
-)
-def update_logfile_plots(workload, msg, clickdata):
+     Input('sys-selector', 'value'),
+     Input('itr-selector', 'value'),
+     Input('dvfs-selector', 'value'),
+     Input('rapl-selector', 'value'),
+     Input('df-selector', 'value'),
+     Input('xaxis-selector', 'value'),
+     Input('yaxis-selector', 'value'),
+    ])
+def update_logfile_plots(workload,
+                         msg,
+                         sys,
+                         itr,
+                         dvfs,
+                         rapl,
+                         df_selector,
+                         xaxis,
+                         yaxis):
+
     #construct filename
     if workload=='netpipe':
-        #TODO: check if we can have a clickdata default in Graph
-        if clickdata:
-            custom_data = clickdata['points'][0]['customdata']
-        else:
-            custom_data = [1, 135, '0xFFFF', 'linux default', 'linux']
-
-        assert(len(custom_data)==5)
-        itr, rapl, dvfs, _, sys = custom_data
-
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
             filename = os.path.join(Locations.netpipe_logs_loc, Locations.netpipe_linux_subfolder, f'dmesg_devicelog.0_{msg}_5000_{itr}_{dvfs}_{rapl}')
@@ -219,15 +208,6 @@ def update_logfile_plots(workload, msg, clickdata):
         print('Netpipe', filename)    
 
     elif workload=='nodejs':
-        #TODO: check if we can have a clickdata default in Graph
-        if clickdata:
-            custom_data = clickdata['points'][0]['customdata']
-        else:
-            custom_data = [1, 135, '0xffff', 'linux default', 'linux']
-
-        assert(len(custom_data)==5)
-        itr, rapl, dvfs, _, sys = custom_data
-
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
             filename = os.path.join(Locations.nodejs_logs_loc, Locations.nodejs_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}')
@@ -248,15 +228,6 @@ def update_logfile_plots(workload, msg, clickdata):
         print('NodeJS', filename, ts_filename)
 
     elif workload=='mcd':
-        #TODO: check if we can have a clickdata default in Graph
-        if clickdata:
-            custom_data = clickdata['points'][0]['customdata']
-        else:
-            custom_data = [1, 135, '0xffff', 'linux default', 'linux']
-
-        assert(len(custom_data)==5)
-        itr, rapl, dvfs, _, sys = custom_data
-
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
             filename = os.path.join(Locations.mcd_logs_loc, Locations.mcd_linux_subfolder, f'mcd_dmesg.0_4_{itr}_{dvfs}_{rapl}_{qps}')
@@ -277,15 +248,6 @@ def update_logfile_plots(workload, msg, clickdata):
         print('Memcached', filename, ts_filename)
 
     elif workload=='mcdsilo':
-        #TODO: check if we can have a clickdata default in Graph
-        if clickdata:
-            custom_data = clickdata['points'][0]['customdata']
-        else:
-            custom_data = [1, 135, '0xffff', 'linux default', 'linux']
-
-        assert(len(custom_data)==5)
-        itr, rapl, dvfs, _, sys = custom_data
-
         #TODO: add selector for run number (the "1" after dmesg)
         if sys=='linux':
             filename = os.path.join(Locations.mcdsilo_logs_loc, Locations.mcdsilo_linux_subfolder, f'node_dmesg.9_1_{itr}_{dvfs}_{rapl}_{qps}')
@@ -314,40 +276,12 @@ def update_logfile_plots(workload, msg, clickdata):
                                    pass_colnames=pass_colnames, 
                                    skiprows=skiprows)
 
-    #make plots
-    #TODO: add selector for runs
-    fig_list = []
-    for m in PlotList.timeline_plots_metrics:
-        if m.find('tx')==0 or m.find('rx')==0:
-            df_to_use = df_orig
-        else:
-            df_to_use = df
+    fig = px.scatter(df_orig, 
+                     x=xaxis, 
+                     y=yaxis)
 
-        fig = px.scatter(df_to_use,
-                         x='timestamp',
-                         y=m,
-                         labels={'timestamp': 'Time(s)', m: m},
-                         title=f'Timeline for metric = {m}')
-        fig_list.append(fig)
-
-    #barplot
-
-
-    return tuple(fig_list)
-
-'''
-Plots:
-
-Surfaces
-Energy timeline
-tx_bytes/rx_bytes timelines
-Counters (N_interrupts etc.)
-
-Postpone:
-Comparison between two selections
-
-'''
+    return fig
 
 if __name__=='__main__':
-    #app.run_server(debug=True)
-    app.run_server(host='10.241.31.7', port='8050')
+    app.run_server(debug=True)
+    #app.run_server(host='10.241.31.7', port='8050')
