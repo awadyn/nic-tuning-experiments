@@ -33,8 +33,12 @@ COLORMAPS = {'linux_tuned': 'Greens',
              'ebbrt_tuned': 'Reds'}
 
 
-netpipe_msg_sizes = [64, 8192, 65536, 524288]
-mcd_qps_sizes = [200000, 400000, 600000]
+msg_qps_sizes = {
+  'netpipe': {'options': [64, 8192, 65536, 524288], 'value': 8192},
+  'nodejs': {'options': [], 'value': None},
+  'mcd': {'options': [200000, 400000, 600000], 'value': 200000},
+  'mcdsilo': {'options': [50000, 100000, 200000], 'value': 50000},
+}
 
 
 #nodejs -> netpipe colnames
@@ -49,3 +53,9 @@ COL_MAPPER = {'ins': 'instructions',
               'refcyc': 'ref_cycles',
               'llcm': 'llc_miss',
             }
+hover_data = {
+  'netpipe': ['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean', 'num_interrupts_mean'],
+  'nodejs': ['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'],
+  'mcd': ['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'],
+  'mcdsilo': ['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean']
+}

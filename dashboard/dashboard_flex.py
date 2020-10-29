@@ -68,17 +68,8 @@ app.layout = html.Div([
     [Input('workload-selector', 'value')]
 )
 def update_radio_button(workload):
-    if workload=='netpipe':
-        options = [{'label': key, 'value': key} for key in netpipe_msg_sizes]
-        value = 8192
-
-    elif workload=='mcd' or workload=='mcdsilo':
-        options = [{'label': key, 'value': key} for key in mcd_qps_sizes]
-        value = 200000
-
-    else:
-        options = []
-        value = None
+    options = [{'label': key, 'value': key} for key in msg_qps_sizes[workload]['options']]
+    value = msg_qps_sizes[workload]['value']
 
     return options, value
 
@@ -120,20 +111,9 @@ def update_edp_scatter(workload, msg, agg_err_bar):
                          error_y='joules_std', 
                          color='Sys',
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
-                         hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
+                         hover_data=hover_data[workload],
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
-
-        fig2 = px.scatter(df_comb, 
-                          x='instructions_mean', 
-                          y='joules_mean', 
-                          error_x='instructions_std', 
-                          error_y='joules_std', 
-                          color='Sys',
-                          labels={'ins_mean': 'Instructions', 'joules_mean': 'Energy (Joules)'}, 
-                          hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
-                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
-                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
 
     else:
@@ -142,19 +122,9 @@ def update_edp_scatter(workload, msg, agg_err_bar):
                          y='joules_mean', 
                          color='Sys',
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
-                         hover_data=['itr', 'rapl', 'dvfs', 'Sys'], 
+                         hover_data=hover_data[workload],
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys', 'instructions_mean'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
-
-        fig2 = px.scatter(df_comb, 
-                          x='instructions_mean', 
-                          y='joules_mean', 
-                          color='Sys',
-                          labels={'ins_mean': 'Instructions', 'joules_mean': 'Energy (Joules)'}, 
-                          hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
-                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
-                          title=f'{workload.capitalize()} {msg} bytes Global Plot')
-
 
 
     return fig, xaxis_values, yaxis_values #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
@@ -192,7 +162,7 @@ def update_custom_plot(workload, msg, agg_err_bar, xcol, ycol):
                          error_x=xcol.replace('_mean', '_std'), 
                          error_y=ycol.replace('_mean', '_std'), 
                          color='Sys',
-                         hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
+                         hover_data=hover_data[workload],
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plo')
 
@@ -202,7 +172,7 @@ def update_custom_plot(workload, msg, agg_err_bar, xcol, ycol):
                          x=xcol, 
                          y=ycol, 
                          color='Sys',
-                         hover_data=['itr', 'rapl', 'dvfs', 'Sys', 'instructions_mean'], 
+                         hover_data=hover_data[workload],
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
                          title=f'{workload.capitalize()} {msg} bytes Global Plo')
 
