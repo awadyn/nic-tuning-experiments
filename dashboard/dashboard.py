@@ -163,7 +163,7 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
                          hover_data=['itr', 'rapl', 'dvfs', 'Sys'], 
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
-                         title=f'Netpipe {msg} bytes Global Plot')
+                         title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
     else:
         fig = px.scatter(df_comb, 
@@ -173,7 +173,7 @@ def update_aggregate_plot(workload, msg, agg_err_bar):
                          labels={'time_mean': 'Time (s)', 'joules_mean': 'Energy (Joules)'}, 
                          hover_data=['itr', 'rapl', 'dvfs', 'Sys'], 
                          custom_data=['itr', 'rapl', 'dvfs', 'Sys', 'sys'],
-                         title=f'Netpipe {msg} bytes Global Plot')
+                         title=f'{workload.capitalize()} {msg} bytes Global Plot')
 
 
     return fig #, df_comb.to_dict('records'), [{'name': i, 'id': i} for i in df_comb.columns]
@@ -313,9 +313,6 @@ def update_logfile_plots(workload, msg, clickdata):
                                    ts_end_idx=ts_end_idx,
                                    pass_colnames=pass_colnames, 
                                    skiprows=skiprows)
-
-    print(df.columns)
-    print(df.head())
 
     #make plots
     #TODO: add selector for runs

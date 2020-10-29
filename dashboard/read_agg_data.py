@@ -33,6 +33,8 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
 
 
     elif workload=='mcdsilo':
+        filename = os.path.join(Locations.aggregate_files_loc, 'mcdsilo_combined.csv')
+    
         #scale_requests = kwargs.get('scale_requests', True)
         if 'scale_requests' not in kwargs:
             kwargs['scale_requests'] = True
