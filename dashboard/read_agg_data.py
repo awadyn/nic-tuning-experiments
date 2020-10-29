@@ -37,8 +37,8 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
 def start_netpipe_analysis(drop_outliers=False):
     N_ROUNDS = 5000
 
-    df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'aug11data.csv')) #truncated logs for 512k fixed
-    df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'jul20data_governor.csv'))
+    df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_tuned.csv')) #truncated logs for 512k fixed
+    df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_governor.csv'))
 
     df_fixed = rename_cols(df_fixed)
     df_gov = rename_cols(df_gov)
