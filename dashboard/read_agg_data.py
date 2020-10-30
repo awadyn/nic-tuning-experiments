@@ -73,7 +73,7 @@ def start_netpipe_analysis(drop_outliers=False):
     return df_comb, df, outlier_list
 
 def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
-    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'nodejs_8_4.csv'), sep=' ')
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'node_10_29_2020.csv'), sep=' ')
 
     df.drop(['START_RDTSC', 'END_RDTSC'], axis=1, inplace=True)
 
