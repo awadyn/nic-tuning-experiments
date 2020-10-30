@@ -75,7 +75,7 @@ def start_netpipe_analysis(drop_outliers=False):
 def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
     df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'node_10_29_2020.csv'), sep=' ')
 
-    df.drop(['START_RDTSC', 'END_RDTSC'], axis=1, inplace=True)
+    #df.drop(['START_RDTSC', 'END_RDTSC'], axis=1, inplace=True)
 
     df = rename_cols(df)
 
