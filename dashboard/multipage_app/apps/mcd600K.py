@@ -7,10 +7,7 @@ import plotly.express as px
 import os
 import plotly.graph_objects as go
 import pandas as pd
-
-#from config_local import *
-#from read_agg_data import *
-#from process_log_data import *
+import numpy as np
 
 from app import app
 
@@ -18,13 +15,6 @@ LINUX_COLS = ['i', 'rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes', 'instructions',
 EBBRT_COLS = ['i', 'rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes', 'instructions', 'cycles', 'ref_cycles', 'llc_miss', 'c3', 'c6', 'c7', 'joules', 'timestamp']
 JOULE_CONVERSION = 0.00001526 #counter * constant -> JoulesOB
 TIME_CONVERSION_khz = 1./(2899999*1000)
-
-#Home-spun caching
-agg_data = {}
-log_data = {}
-axis_values = {}
-
-#app = dash.Dash()
 
 global_linux_default_df = pd.DataFrame()
 global_linux_default_df_non0j = pd.DataFrame()
@@ -38,13 +28,15 @@ global_ebbrt_tuned_df = pd.DataFrame()
 global_ebbrt_tuned_df_non0j = pd.DataFrame()
 global_ebbrt_tuned_name = []
 
-workload_loc='/scratch2/node/node_combined_11_17_2020/node_combined.csv'
-log_loc='/scratch2/node/node_combined_11_17_2020/'
+workload_loc='/scratch2/han/asplos_2021_datasets/mcd/mcd_combined_11_9_2020/mcd_combined.csv'
+log_loc='/scratch2/han/asplos_2021_datasets/mcd/mcd_combined_11_9_2020/'
 
 df_comb = pd.read_csv(workload_loc, sep=' ')
 df_comb = df_comb[df_comb['joules'] > 0]
-df_comb['edp'] = 0.5 * df_comb['joules'] * df_comb['time']
+df_comb = df_comb[df_comb['read_99th'] < 501]
+df_comb = df_comb[df_comb['target_QPS'] == 600000].copy()
 axis_values = [{'label': key, 'value': key} for key in df_comb.columns]        
+df_comb['time'] = df_comb['time'].astype(np.int32)
 
 edp_fig = px.scatter(df_comb, 
                      x='time', 
@@ -53,194 +45,203 @@ edp_fig = px.scatter(df_comb,
                      labels={'time': 'Time (s)', 'joules': 'Energy (Joules)'}, 
                      hover_data=['i', 'itr', 'rapl', 'dvfs', 'sys', 'num_interrupts'],
                      custom_data=['i', 'itr', 'rapl', 'dvfs', 'sys'],
-                     title=f'NodeJS EDP')
+                     title=f'Memcached 600K QPS')
 
-'''
-td_fig = px.scatter_3d(df_comb, 
-                       x='itr', 
-                       y='dvfs', 
-                       z='joules',
-                       color='sys',
-                       hover_data=['i', 'itr', 'rapl', 'dvfs', 'sys', 'num_interrupts'],
-                       custom_data=['i', 'itr', 'rapl', 'dvfs', 'sys'],
-                       title='X=ITR Y=DVFS Z=JOULE',
-                       width=800,
-                       height=800)
-'''
+#df_comb_600k_no_default = df_comb_600k[df_comb_600k['sys'] != 'linux_default']
+#df_comb_600k_no_default['opacity'] = (df_comb_600k_no_default['joules'] - df_comb_600k_no_default['joules'].min()) / (df_comb_600k_no_default['joules'].max() - df_comb_600k_no_default['joules'].min())
         
 layout = html.Div([
-    html.H3('NodeJS'),
+    html.H3('Memcached QPS 600K'),
     dcc.Link('Home', href='/'),
     html.Br(),
     
     dcc.Graph(
-        id='node-edp-scatter',
+        id='mcd6-edp-scatter',
         figure = edp_fig,
         style={'display': 'inline-block'},
-    ),
-    
-    html.Br(),
+    ),   
+
+    html.Div(id='mcd6-my-output'),
     html.P('SYS = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='node-sys-dd',                 
+    dcc.Dropdown(id='mcd6-sys-dd',
                  options=[
                      {'label': 'linux_tuned', 'value': 'linux_tuned'},
                      {'label': 'linux_default', 'value': 'linux_default'},
                      {'label': 'ebbrt_tuned', 'value': 'ebbrt_tuned'},
                  ],
-                 value='ebbrt_tuned',
+                 value='linux_tuned',
                  style={'display': 'inline-block', 'width':'40%'}
-    ),    
+    ),
     html.P('Run_Number = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='node-i-dd',                 
+    dcc.Dropdown(id='mcd6-i-dd',                 
                  options=[
-                     {'label': i, 'value': i} for i in range(0, 5)
+                     {'label': 0, 'value': 0},
+                     {'label': 1, 'value': 1},
+                     {'label': 2, 'value': 2},
+                     {'label': 3, 'value': 3},
+                     {'label': 4, 'value': 4},
+                     {'label': 5, 'value': 5},
                  ],
                  value=0,
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.Br(),
     html.P('ITR = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='node-itr-dd',
+    dcc.Dropdown(id='mcd6-itr-dd',
                  options=[
-                     {'label': i, 'value': i} for i in [
-                         1, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 46, 40, 50, 60, 70, 80
-                     ]
+                     {'label': 50, 'value': 50},
+                     {'label': 100, 'value': 100},
+                     {'label': 200, 'value': 200},
+                     {'label': 300, 'value': 300},
+                     {'label': 400, 'value': 400},
+                     {'label': 1, 'value': 1},
                  ],
-                 value=2,
+                 value=50,
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.P('DVFS = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='node-dvfs-dd',
+    dcc.Dropdown(id='mcd6-dvfs-dd',
                  options=[
-                     {'label': i, 'value': i} for i in [
-                         '0xffff', '0x1d00', '0x1b00', '0x1900', '0x1700', '0x1500', '0x1300', '0x1100', '0xf00', '0xd00'
-                     ]
+                     {'label': '0xd00', 'value': '0xd00'},
+                     {'label': '0xf00', 'value': '0xf00'},
+                     {'label': '0x1100', 'value': '0x1100'},
+                     {'label': '0x1300', 'value': '0x1300'},
+                     {'label': '0x1500', 'value': '0x1500'},
+                     {'label': '0x1900', 'value': '0x1900'},
+                     {'label': '0x1b00', 'value': '0x1b00'},
+                     {'label': '0x1d00', 'value': '0x1d00'},
+                     {'label': '0xffff', 'value': '0xffff'},
                  ],
                  value='0x1d00',
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.Br(),
     html.P('RAPL = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='node-rapl-dd',
+    dcc.Dropdown(id='mcd6-rapl-dd',
                  options=[
-                     {'label': i, 'value': i} for i in [
-                         135, 75, 55
-                     ]
+                     {'label': 135, 'value': 135},
+                     {'label': 95, 'value': 95},
+                     {'label': 55, 'value': 55},
                  ],
                  value=135,
                  style={'display': 'inline-block', 'width':'40%'}
     ),
-    #html.Br(),
-    #html.Div('Core=i rxPollCnt processCnt swEventCnt idleEventCnt'),
-    html.Br(),
-    html.Div(id='node-my-output'),
-    html.Br(),
-    html.Div(id='node-my-output2'),
-    html.Br(),
-    html.Div(id='node-my-output3'),
-    html.Div([
-        html.Hr(),
-        html.Br()
-    ]),
-    html.Button(id='node-btn', children='Update Plots', n_clicks=0),
-    html.Br(),        
-
-    dcc.Graph(
-        id='node-timeline-1',
-        style={'display': 'inline-block'},
+    html.P('CORE = ', style={'display': 'inline-block'}),
+    dcc.Dropdown(id='mcd6-core-dd',
+                 options=[
+                     {'label': '0', 'value': 0},
+                     {'label': '1', 'value': 1},
+                     {'label': '2', 'value': 2},
+                     {'label': '3', 'value': 3},
+                     {'label': '4', 'value': 4},
+                     {'label': '5', 'value': 5},
+                     {'label': '6', 'value': 6},
+                     {'label': '7', 'value': 7},
+                     {'label': '8', 'value': 8},
+                     {'label': '9', 'value': 9},
+                     {'label': '10', 'value': 10},
+                     {'label': '11', 'value': 11},
+                     {'label': '12', 'value': 12},
+                     {'label': '13', 'value': 13},
+                     {'label': '14', 'value': 14},
+                     {'label': '15', 'value': 15}
+                 ],
+                 value=0,
+                 style={'display': 'inline-block'}
     ),
-    
-    dcc.Graph(
-        id='node-timeline-2',
-        style={'display': 'inline-block'},
-    ),
-    
-    dcc.Graph(
-        id='node-timeline-3',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-4',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-5',
-        style={'display': 'inline-block'},
-    ),
-    
-    dcc.Graph(
-        id='node-timeline-6',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-7',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-8',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-9',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-10',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-11',
-        style={'display': 'inline-block'},
-    ),
-
-    dcc.Graph(
-        id='node-timeline-12',
-        style={'display': 'inline-block'},
-    ),
-
     
     html.Div([
         html.Hr(),
         html.Br()
     ]),
+    html.Button(id='mcd6-btn', children='Update Plots', n_clicks=0),
+    html.Br(),
+    dcc.Graph(
+        id='mcd6-timeline-1',
+        style={'display': 'inline-block'},
+    ),
+    
+    dcc.Graph(
+        id='mcd6-timeline-2',
+        style={'display': 'inline-block'},
+    ),
+    
+    dcc.Graph(
+        id='mcd6-timeline-3',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-4',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-5',
+        style={'display': 'inline-block'},
+    ),
+    
+    dcc.Graph(
+        id='mcd6-timeline-6',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-7',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-8',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-9',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-10',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-11',
+        style={'display': 'inline-block'},
+    ),
+
+    dcc.Graph(
+        id='mcd6-timeline-12',
+        style={'display': 'inline-block'},
+    ),
     
     html.Div([
-        dcc.Dropdown(id='node-xaxis-selector-1', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='node-yaxis-selector-1', value='joules', style={'width':'60%'}, options=axis_values),        
+        html.Hr(),
+        html.Br()
+    ]),
+    
+    html.Div([
+        dcc.Dropdown(id='mcd6-xaxis-selector-1', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcd6-yaxis-selector-1', value='joules', style={'width':'60%'}, options=axis_values),        
         dcc.Graph(
-            id='node-custom-scatter-1', style={'display': 'inline-block'}
+            id='mcd6-custom-scatter-1', style={'display': 'inline-block'}
         )
     ], style={'display': 'inline-block'}),
         
     html.Div([
-        dcc.Dropdown(id='node-xaxis-selector-2', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='node-yaxis-selector-2', value='joules', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcd6-xaxis-selector-2', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcd6-yaxis-selector-2', value='joules', style={'width':'60%'}, options=axis_values),
         dcc.Graph(
-            id='node-custom-scatter-2', style={'display': 'inline-block'}
+            id='mcd6-custom-scatter-2', style={'display': 'inline-block'}
         ),
     ], style={'display': 'inline-block'}),
 
     html.Div([
-        dcc.Dropdown(id='node-xaxis-selector-3', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='node-yaxis-selector-3', value='joules', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcd6-xaxis-selector-3', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcd6-yaxis-selector-3', value='joules', style={'width':'60%'}, options=axis_values),
         dcc.Graph(
-            id='node-custom-scatter-3',
-            style={'display': 'inline-block'}
-        ),
-    ], style={'display': 'inline-block'}),
-
-    html.Div([
-        dcc.Dropdown(id='node-xaxis-selector-4', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='node-yaxis-selector-4', value='joules', style={'width':'60%'}, options=axis_values),
-        dcc.Graph(
-            id='node-custom-scatter-4',
+            id='mcd6-custom-scatter-3',
             style={'display': 'inline-block'}
         ),
     ], style={'display': 'inline-block'}),
@@ -249,24 +250,24 @@ layout = html.Div([
         html.Hr(),
         html.Br()
     ]),
-
+                  
     html.Div([
         html.P('X = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-xaxis-selector-3d-1', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-xaxis-selector-3d-1', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Y = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-yaxis-selector-3d-1', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-yaxis-selector-3d-1', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Z = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-zaxis-selector-3d-1', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-zaxis-selector-3d-1', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         html.P('Color = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-color-selector-3d-1', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-color-selector-3d-1', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Symbol = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-symbol-selector-3d-1', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-symbol-selector-3d-1', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Size = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-size-selector-3d-1', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-size-selector-3d-1', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         dcc.Graph(
-            id='node-custom-scatter3d-1',
+            id='mcd6-custom-scatter3d-1',
             style={'display': 'inline-block'},
         ),
     ]),
@@ -274,61 +275,43 @@ layout = html.Div([
     html.Br(),
     html.Div([
         html.P('X = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-xaxis-selector-3d-2', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-xaxis-selector-3d-2', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Y = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-yaxis-selector-3d-2', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-yaxis-selector-3d-2', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Z = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-zaxis-selector-3d-2', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-zaxis-selector-3d-2', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         html.P('Color = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-color-selector-3d-2', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-color-selector-3d-2', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Symbol = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-symbol-selector-3d-2', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-symbol-selector-3d-2', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Size = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-size-selector-3d-2', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcd6-size-selector-3d-2', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         dcc.Graph(
-            id='node-custom-scatter3d-2',
-            style={'display': 'inline-block'},
-        ),
-    ]),
-
-    html.Br(),
-    html.Div([
-        html.P('X = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-xaxis-selector-3d-3', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.P('Y = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-yaxis-selector-3d-3', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.P('Z = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-zaxis-selector-3d-3', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.Br(),
-        html.P('Color = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-color-selector-3d-3', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.P('Symbol = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-symbol-selector-3d-3', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.P('Size = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='node-size-selector-3d-3', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
-        html.Br(),
-        dcc.Graph(
-            id='node-custom-scatter3d-3',
+            id='mcd6-custom-scatter3d-2',
             style={'display': 'inline-block'},
         ),
     ])
+
+                  
 ])
 
 @app.callback(
-    Output('node-i-dd', 'value'),
-    Output('node-itr-dd', 'value'),
-    Output('node-rapl-dd', 'value'),
-    Output('node-dvfs-dd', 'value'),
-    Output('node-sys-dd', 'value'),
-    [Input('node-edp-scatter', 'clickData')]
+    Output('mcd6-i-dd', 'value'),
+    Output('mcd6-itr-dd', 'value'),
+    Output('mcd6-rapl-dd', 'value'),
+    Output('mcd6-dvfs-dd', 'value'),
+    Output('mcd6-core-dd', 'value'),
+    Output('mcd6-sys-dd', 'value'),
+    [Input('mcd6-edp-scatter', 'clickData')]
 )
-def update_dropdown(clickData):
+def update_timeline_plots1(clickData):
     print(clickData)
     custom_data = clickData['points'][0]['customdata']
-    num, itr, rapl, dvfs, sys, num_interrupts  = custom_data
-    return int(num), int(itr), int(rapl), dvfs, sys
+    num, itr, rapl, dvfs, sys, num_interrupts= custom_data
+    return int(num), int(itr), int(rapl), dvfs, 0, sys
+
 
 def getFig(m, non0j=False, scatter=False):
     global global_linux_default_df
@@ -381,30 +364,27 @@ def getFig(m, non0j=False, scatter=False):
 
     return fig1
 
-    
 @app.callback(
-#    Output(component_id='node-my-output', component_property='children'),
-#    Output(component_id='node-my-output2', component_property='children'),
-    Output('node-timeline-1', 'figure'),
-    Output('node-timeline-2', 'figure'),
-    Output('node-timeline-3', 'figure'),
-    Output('node-timeline-4', 'figure'),
-    Output('node-timeline-5', 'figure'),
-    Output('node-timeline-6', 'figure'),
-    Output('node-timeline-7', 'figure'),
-    Output('node-timeline-8', 'figure'),
-    Output('node-timeline-9', 'figure'),
-    Output('node-timeline-10', 'figure'),
-    Output('node-timeline-11', 'figure'),
-    Output('node-timeline-12', 'figure'),
-    [Input('node-btn', 'n_clicks')],
-    [State('node-i-dd', 'value'),
-     State('node-itr-dd', 'value'),
-     State('node-rapl-dd', 'value'),
-     State('node-dvfs-dd', 'value'),
-     State('node-sys-dd', 'value')]
+#    Output('mcd6-my-output', 'children'),
+    Output('mcd6-timeline-1', 'figure'),
+    Output('mcd6-timeline-2', 'figure'),
+    Output('mcd6-timeline-3', 'figure'),
+    Output('mcd6-timeline-4', 'figure'),
+    Output('mcd6-timeline-5', 'figure'),
+    Output('mcd6-timeline-6', 'figure'),
+    Output('mcd6-timeline-7', 'figure'),
+    Output('mcd6-timeline-8', 'figure'),
+    Output('mcd6-timeline-9', 'figure'),
+    Output('mcd6-timeline-10', 'figure'),
+    [Input('mcd6-btn', 'n_clicks')],
+    [State('mcd6-i-dd', 'value'),
+     State('mcd6-itr-dd', 'value'),
+     State('mcd6-rapl-dd', 'value'),
+     State('mcd6-dvfs-dd', 'value'),
+     State('mcd6-core-dd', 'value'),
+     State('mcd6-sys-dd', 'value')]
 )
-def update_timeline_plots(n_clicks, num, itr, rapl, dvfs, sys):
+def update_plots(n_clicks, i, itr, rapl, dvfs, core, sys):
     global global_linux_default_df
     global global_linux_tuned_df
     global global_ebbrt_tuned_df
@@ -415,64 +395,64 @@ def update_timeline_plots(n_clicks, num, itr, rapl, dvfs, sys):
     global global_linux_tuned_name
     global global_ebbrt_tuned_name
 
+    print(sys, i, core, itr, rapl, dvfs)
     if n_clicks == 0:
         return
     
-    print('n_clicks=',n_clicks)
     fname=''
     START_RDTSC=0
     END_RDTSC=0
-    #output=""
-    #output2="Timer() counter, fireCnt = "
+    num_interrupts = 0
+    qps = 200000
+    
     if sys == 'linux_tuned' or sys == 'linux_default':        
-        frdtscname = f'{log_loc}/linux.node.server.rdtsc.{num}_1_{itr}_{dvfs}_{rapl}'
+        frdtscname = f'{log_loc}/linux.mcd.rdtsc.{i}_{itr}_{dvfs}_{rapl}_{qps}'
         frdtsc = open(frdtscname, 'r')
         for line in frdtsc:
             tmp = line.strip().split(' ')
-            START_RDTSC = int(tmp[1])
-            END_RDTSC = int(tmp[2])
-            tdiff = round(float((END_RDTSC - START_RDTSC) * TIME_CONVERSION_khz), 2)
-            if tdiff > 3 and tdiff < 40:
-                break
+            if int(tmp[2]) > START_RDTSC:                                
+                START_RDTSC = int(tmp[2])
+            
+            if END_RDTSC == 0:                                
+                END_RDTSC = int(tmp[3])
+            elif END_RDTSC < int(tmp[3]):
+                END_RDTSC = int(tmp[3])                                                            
         frdtsc.close()
 
-        fname = f'{log_loc}/linux.node.server.log.{num}_1_{itr}_{dvfs}_{rapl}'
+        fname = f'{log_loc}/linux.mcd.dmesg.{i}_{core}_{itr}_{dvfs}_{rapl}_{qps}'
         if sys == 'linux_tuned':
             global_linux_tuned_df, global_linux_tuned_df_non0j = updateDF(fname, START_RDTSC, END_RDTSC)
-            global_linux_tuned_name = [sys, num, itr, rapl, dvfs]
+            #update plot name
+            global_linux_tuned_name = [sys, core, i, itr, rapl, dvfs, qps]
         elif sys == 'linux_default':
             global_linux_default_df, global_linux_default_df_non0j = updateDF(fname, START_RDTSC, END_RDTSC)
-            global_linux_default_name = [sys, num, itr, rapl, dvfs]
-            
-    elif sys == 'ebbrt_tuned':        
-        frdtscname = f'{log_loc}/ebbrt_rdtsc.{num}_{itr}_{dvfs}_{rapl}'
+            #update plot name
+            global_linux_default_name = [sys, core, i, itr, rapl, dvfs, qps]
+        else:
+            print("unknown sys", sys)
+    elif sys == 'ebbrt_tuned':
+        frdtscname = f'{log_loc}/ebbrt_rdtsc.{i}_{itr}_{dvfs}_{rapl}_{qps}'
         frdtsc = open(frdtscname, 'r')
         for line in frdtsc:
             tmp = line.strip().split(' ')
             START_RDTSC = int(tmp[0])
             END_RDTSC = int(tmp[1])
-            tdiff = round(float((END_RDTSC - START_RDTSC) * TIME_CONVERSION_khz), 2)
-            if tdiff > 3 and tdiff < 40:
-                break
+            break    
         frdtsc.close()
 
-        '''
-        fcountersname = f'{log_loc}/ebbrt_counters.{num}_{itr}_{dvfs}_{rapl}'
-        fcounter = open(fcountersname, 'r')
-        for line in fcounter:
-            if 'core' in line:                
-                output+=line.strip()+'\n'
-            else:
-                output2+=line
-        fcounter.close()
-        '''
-        
-        fname = f'{log_loc}/ebbrt_dmesg.{num}_1_{itr}_{dvfs}_{rapl}.csv'
+        fname = f'{log_loc}/ebbrt_dmesg.{i}_{core}_{itr}_{dvfs}_{rapl}_{qps}.csv'        
         global_ebbrt_tuned_df, global_ebbrt_tuned_df_non0j = updateDF(fname, START_RDTSC, END_RDTSC, ebbrt=True)
         #update plot name
-        global_ebbrt_tuned_name = [sys, num, itr, rapl, dvfs]
-                
-    return getFig('tx_bytes'), getFig('rx_bytes'), getFig('timestamp_diff'), getFig('timestamp_diff', scatter=True), getFig('ref_cycles_diff'), getFig('ref_cycles_diff', scatter=True), getFig('joules_diff', non0j=True),  getFig('joules_diff', non0j=True, scatter=True), getFig('instructions_diff'), getFig('instructions_diff', scatter=True), getFig('llc_miss_diff'), getFig('llc_miss_diff', scatter=True)
+        global_ebbrt_tuned_name = [sys, core, i, itr, rapl, dvfs, qps]
+
+    return getFig('tx_bytes'), getFig('rx_bytes'), getFig('timestamp_diff'), getFig('timestamp_diff', scatter=True), getFig('joules_diff', non0j=True), getFig('joules_diff', non0j=True, scatter=True), getFig('ref_cycles_diff', non0j=True), getFig('ref_cycles_diff', non0j=True, scatter=True), getFig('instructions_diff', non0j=True), getFig('llc_miss_diff', non0j=True)
+
+#    fig_tx_bytes = getFig('tx_bytes')
+#    fig_rx_bytes = getFig('rx_bytes')
+#    fig_joules_diff = getFig('joules_diff', non0j=True)
+#    fig_timestamp_diff = getFig('timestamp_diff')
+#    
+#    return f'{n_clicks} {i} {itr} {rapl} {dvfs} {qps}', fig_tx_bytes, fig_rx_bytes, fig_joules_diff, fig_timestamp_diff
 
 def updateDF(fname, START_RDTSC, END_RDTSC, ebbrt=False):
     df = pd.DataFrame()
@@ -488,40 +468,33 @@ def updateDF(fname, START_RDTSC, END_RDTSC, ebbrt=False):
     #converting timestamps
     df['timestamp'] = df['timestamp'] - df['timestamp'].min()
     df['timestamp'] = df['timestamp'] * TIME_CONVERSION_khz
-
-    # convert joules
-    df['joules'] = df['joules'] * JOULE_CONVERSION
-    
-    # update diffs
+    # update timestamp_diff
     df['timestamp_diff'] = df['timestamp'].diff()
-    df['instructions_diff'] = df['instructions'].diff()
-    df['ref_cycles_diff'] = df['ref_cycles'].diff()
-    df['ref_cycles_diff'] = df['ref_cycles_diff'] * TIME_CONVERSION_khz
-    df['cycles_diff'] = df['cycles'].diff()
-    df['llc_miss_diff'] = df['llc_miss'].diff()
     df.dropna(inplace=True)
-    
+        
     ## convert global_linux_tuned_df_non0j
     df_non0j = df[df['joules'] > 0
                   & (df['instructions'] > 0)
                   & (df['cycles'] > 0)
                   & (df['ref_cycles'] > 0)
-                  & (df['llc_miss'] > 0)].copy()    
-    tmp = df_non0j[['joules', 'c1', 'c1e', 'c3', 'c6', 'c7']].diff()
+                  & (df['llc_miss'] > 0)].copy()
+    df_non0j['joules'] = df_non0j['joules'] * JOULE_CONVERSION
+    tmp = df_non0j[['instructions', 'ref_cycles', 'cycles', 'joules', 'timestamp', 'llc_miss', 'c1', 'c1e', 'c3', 'c6', 'c7']].diff()
     tmp.columns = [f'{c}_diff' for c in tmp.columns]
     df_non0j = pd.concat([df_non0j, tmp], axis=1)
     df_non0j.dropna(inplace=True)
+    df_non0j['ref_cycles_diff'] = df_non0j['ref_cycles_diff'] * TIME_CONVERSION_khz
     #df_non0j['nonidle_timestamp_diff'] = df_non0j['ref_cycles_diff'] * TIME_CONVERSION_khz
     #global_linux_tuned_df_non0j['nonidle_frac_diff'] = global_linux_tuned_df_non0j['nonidle_timestamp_diff'] / global_linux_tuned_df_non0j['timestamp_diff']
     #print(global_linux_tuned_df_non0j['nonidle_timestamp_diff'], global_linux_tuned_df_non0j['nonidle_timestamp_diff'].shape[0])
     #print(global_linux_tuned_df_non0j['timestamp_diff'], global_linux_tuned_df_non0j['timestamp_diff'].shape[0])
     return df, df_non0j
 
-for i in range(1, 5):
+for i in range(1, 4):
     @app.callback(
-        Output('node-custom-scatter-'+str(i), 'figure'),
-        [Input('node-xaxis-selector-'+str(i), 'value'),
-         Input('node-yaxis-selector-'+str(i), 'value')]
+        Output('mcd6-custom-scatter-'+str(i), 'figure'),
+        [Input('mcd6-xaxis-selector-'+str(i), 'value'),
+         Input('mcd6-yaxis-selector-'+str(i), 'value')]
     )
     def update_custom_scatter(xcol, ycol):
         fig = px.scatter(df_comb, 
@@ -533,18 +506,18 @@ for i in range(1, 5):
                          title=f'X={xcol}\nY={ycol}')    
         return fig
 
+
 for i in range(1, 3):
     @app.callback(
-        Output('node-custom-scatter3d-'+str(i), 'figure'),
-        [Input('node-xaxis-selector-3d-'+str(i), 'value'),
-         Input('node-yaxis-selector-3d-'+str(i), 'value'),
-         Input('node-zaxis-selector-3d-'+str(i), 'value'),
-         Input('node-color-selector-3d-'+str(i), 'value'),
-         Input('node-symbol-selector-3d-'+str(i), 'value'),
-         Input('node-size-selector-3d-'+str(i), 'value')]
+        Output('mcd6-custom-scatter3d-'+str(i), 'figure'),
+        [Input('mcd6-xaxis-selector-3d-'+str(i), 'value'),
+         Input('mcd6-yaxis-selector-3d-'+str(i), 'value'),
+         Input('mcd6-zaxis-selector-3d-'+str(i), 'value'),
+         Input('mcd6-color-selector-3d-'+str(i), 'value'),
+         Input('mcd6-symbol-selector-3d-'+str(i), 'value'),
+         Input('mcd6-size-selector-3d-'+str(i), 'value')]
     )
-    def update_custom_scatter(xcol, ycol, zcol, c, sym, sz):
-        print(xcol, ycol, zcol, c, sym, sz)
+    def update_custom_scatter3d(xcol, ycol, zcol, c, sym, sz):
         fig = px.scatter_3d(df_comb, 
                             x=xcol, 
                             y=ycol,
@@ -557,6 +530,3 @@ for i in range(1, 3):
                             width=800,
                             height=800)
         return fig
-
-#if __name__=='__main__':
-#    app.run_server(host='10.241.31.7', port='8040')

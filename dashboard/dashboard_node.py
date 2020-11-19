@@ -39,7 +39,8 @@ log_loc='/scratch2/han/asplos_2021_datasets/node/node_combined_11_4_2020'
 
 df_comb = pd.read_csv(workload_loc, sep=' ')
 df_comb = df_comb[df_comb['joule'] > 0]
-axis_values = [{'label': key, 'value': key} for key in df_comb.columns]        
+df_comb['edp'] = 0.5 * df_comb['joule'] * df_comb['time']
+axis_values = [{'label': key, 'value': key} for key in df_comb.columns]
 #print(df_comb.shape[0], axis_values)
 #df_comb['inter_interrupt_diff_mean'] = (df_comb['timestamp'].diff()).mean()
 
@@ -177,14 +178,19 @@ def getFig(m, non0j=False, scatter=False):
     global global_ebbrt_tuned_name
 
     fig1 = go.Figure()
-    ## df original
     if non0j == False:
         fig1.update_layout(xaxis_title="timestamp (s)", yaxis_title=f'{m}')
         
         if global_linux_tuned_df.empty == False:
-            fig1.add_trace(go.Pointcloud(x=global_linux_tuned_df['timestamp'], y=global_linux_tuned_df[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
+            if scatter == True:
+                fig1.add_trace(go.Scatter(x=global_linux_tuned_df['timestamp'], y=global_linux_tuned_df[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
+            else:
+                fig1.add_trace(go.Pointcloud(x=global_linux_tuned_df['timestamp'], y=global_linux_tuned_df[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
         if global_linux_default_df.empty == False:
-            fig1.add_trace(go.Pointcloud(x=global_linux_default_df['timestamp'], y=global_linux_default_df[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
+            if scatter == True:
+                fig1.add_trace(go.Scatter(x=global_linux_default_df['timestamp'], y=global_linux_default_df[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
+            else:
+                fig1.add_trace(go.Pointcloud(x=global_linux_default_df['timestamp'], y=global_linux_default_df[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
         if global_ebbrt_tuned_df.empty == False:
             if scatter == True:
                 fig1.add_trace(go.Scatter(x=global_ebbrt_tuned_df['timestamp'], y=global_ebbrt_tuned_df[m], name=f'{global_ebbrt_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'blue'}))
@@ -194,16 +200,21 @@ def getFig(m, non0j=False, scatter=False):
     else:
         fig1.update_layout(xaxis_title="timestamp (s)", yaxis_title=f'{m}')
         if global_linux_tuned_df_non0j.empty == False:
-            fig1.add_trace(go.Pointcloud(x=global_linux_tuned_df_non0j['timestamp'], y=global_linux_tuned_df_non0j[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
+            if scatter == True:
+                fig1.add_trace(go.Scatter(x=global_linux_tuned_df_non0j['timestamp'], y=global_linux_tuned_df_non0j[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
+            else:
+                fig1.add_trace(go.Pointcloud(x=global_linux_tuned_df_non0j['timestamp'], y=global_linux_tuned_df_non0j[m], name=f'{global_linux_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
         if global_linux_default_df_non0j.empty == False:
-            fig1.add_trace(go.Pointcloud(x=global_linux_default_df_non0j['timestamp'], y=global_linux_default_df_non0j[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'red'}))
+            if scatter == True:
+                fig1.add_trace(go.Scatter(x=global_linux_default_df_non0j['timestamp'], y=global_linux_default_df_non0j[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
+            else:
+                fig1.add_trace(go.Pointcloud(x=global_linux_default_df_non0j['timestamp'], y=global_linux_default_df_non0j[m], name=f'{global_linux_default_name}', showlegend=True, marker={'sizemin':2, 'color':'green'}))
         if global_ebbrt_tuned_df_non0j.empty == False:
             if scatter == True:
                 fig1.add_trace(go.Scatter(x=global_ebbrt_tuned_df_non0j['timestamp'], y=global_ebbrt_tuned_df_non0j[m], name=f'{global_ebbrt_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'blue'}, mode='lines+markers'))
             else:
                 fig1.add_trace(go.Pointcloud(x=global_ebbrt_tuned_df_non0j['timestamp'], y=global_ebbrt_tuned_df_non0j[m], name=f'{global_ebbrt_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'blue'}))
-                
-                
+
     return fig1
     
 @app.callback(
@@ -221,7 +232,6 @@ def getFig(m, non0j=False, scatter=False):
     Output('timeline-test2', 'figure'),
     Output('timeline-instructions_diff', 'figure'),
     Output('timeline-timestamp_diff_pointcloud', 'figure'),
-    Output('timeline-joules_diff_pointcloud', 'figure'),
     [Input('edp-scatter', 'clickData')]
 )
 def update_timeline_lots(clickData):
@@ -280,7 +290,7 @@ def update_timeline_lots(clickData):
 
             ## convert global_linux_tuned_df_non0j
             global_linux_tuned_df_non0j = global_linux_tuned_df[global_linux_tuned_df['joules'] > 0].copy()
-
+            
             ## timestamp_diff
             global_linux_tuned_df['timestamp_diff'] = global_linux_tuned_df['timestamp'].diff()
             global_linux_tuned_df.dropna(inplace=True)
@@ -379,10 +389,10 @@ def update_timeline_lots(clickData):
     fig13 = getFig('joules_diff', non0j=True, scatter=True)
     
     #return f'Selected i={num} ITR-Delay={itr} RAPL={rapl} DVFS={dvfs} SYSTEM={sys}', fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9, fig10
-    fig_test = go.Figure()
-    fig_test.update_layout(xaxis_title="timestamp_diff (s)", yaxis_title=f'ref_cycles_diff')
-    fig_test.add_trace(go.Pointcloud(x=global_ebbrt_tuned_df_non0j['timestamp_diff'], y=global_ebbrt_tuned_df_non0j['ref_cycles_diff'], name=f'{global_ebbrt_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'blue'}))
-    return f'Selected i={num} ITR-Delay={itr} RAPL={rapl} DVFS={dvfs} SYSTEM={sys} NUM_INTERRUPTS={num_interrupts}', fig1, fig2, fig3, fig4, fig9, fig10, fig_test, fig11, fig12, fig13
+    #fig_test = go.Figure()
+    #fig_test.update_layout(xaxis_title="timestamp_diff (s)", yaxis_title=f'ref_cycles_diff')
+    #fig_test.add_trace(go.Pointcloud(x=global_ebbrt_tuned_df_non0j['timestamp_diff'], y=global_ebbrt_tuned_df_non0j['ref_cycles_diff'], name=f'{global_ebbrt_tuned_name}', showlegend=True, marker={'sizemin':2, 'color':'blue'}))
+    return f'Selected i={num} ITR-Delay={itr} RAPL={rapl} DVFS={dvfs} SYSTEM={sys} NUM_INTERRUPTS={num_interrupts}', fig1, fig2, fig3, fig4, fig9, fig10, fig11, fig12, fig13
 
 for i in range(1, 4):
     @app.callback(
