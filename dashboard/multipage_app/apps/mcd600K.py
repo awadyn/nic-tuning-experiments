@@ -403,7 +403,7 @@ def update_plots(n_clicks, i, itr, rapl, dvfs, core, sys):
     START_RDTSC=0
     END_RDTSC=0
     num_interrupts = 0
-    qps = 200000
+    qps = 600000
     
     if sys == 'linux_tuned' or sys == 'linux_default':        
         frdtscname = f'{log_loc}/linux.mcd.rdtsc.{i}_{itr}_{dvfs}_{rapl}_{qps}'
@@ -507,7 +507,7 @@ for i in range(1, 4):
         return fig
 
 
-for i in range(1, 3):
+for i in range(1, 2):
     @app.callback(
         Output('mcd6-custom-scatter3d-'+str(i), 'figure'),
         [Input('mcd6-xaxis-selector-3d-'+str(i), 'value'),

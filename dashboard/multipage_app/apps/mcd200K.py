@@ -507,7 +507,7 @@ for i in range(1, 4):
         return fig
 
 
-for i in range(1, 3):
+for i in range(1, 2):
     @app.callback(
         Output('mcd2-custom-scatter3d-'+str(i), 'figure'),
         [Input('mcd2-xaxis-selector-3d-'+str(i), 'value'),

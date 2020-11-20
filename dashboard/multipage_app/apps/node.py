@@ -533,7 +533,7 @@ for i in range(1, 5):
                          title=f'X={xcol}\nY={ycol}')    
         return fig
 
-for i in range(1, 3):
+for i in range(1, 2):
     @app.callback(
         Output('node-custom-scatter3d-'+str(i), 'figure'),
         [Input('node-xaxis-selector-3d-'+str(i), 'value'),

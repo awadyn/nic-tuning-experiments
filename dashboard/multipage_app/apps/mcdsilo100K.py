@@ -28,13 +28,14 @@ global_ebbrt_tuned_df = pd.DataFrame()
 global_ebbrt_tuned_df_non0j = pd.DataFrame()
 global_ebbrt_tuned_name = []
 
-workload_loc='/scratch2/han/asplos_2021_datasets/mcd/mcd_combined_11_9_2020/mcd_combined.csv'
-log_loc='/scratch2/han/asplos_2021_datasets/mcd/mcd_combined_11_9_2020/'
+workload_loc='/scratch2/mcdsilo/mcdsilo_combined/mcdsilo_combined.csv'
+log_loc='/scratch2/mcdsilo/mcdsilo_combined/'
 
 df_comb = pd.read_csv(workload_loc, sep=' ')
 df_comb = df_comb[df_comb['joules'] > 0]
 df_comb = df_comb[df_comb['read_99th'] < 501]
-df_comb = df_comb[df_comb['target_QPS'] == 400000].copy()
+df_comb = df_comb[df_comb['time'] > 19]
+df_comb = df_comb[df_comb['target_QPS'] == 100000].copy()
 axis_values = [{'label': key, 'value': key} for key in df_comb.columns]        
 df_comb['time'] = df_comb['time'].astype(np.int32)
 
@@ -45,25 +46,22 @@ edp_fig = px.scatter(df_comb,
                      labels={'time': 'Time (s)', 'joules': 'Energy (Joules)'}, 
                      hover_data=['i', 'itr', 'rapl', 'dvfs', 'sys', 'num_interrupts'],
                      custom_data=['i', 'itr', 'rapl', 'dvfs', 'sys'],
-                     title=f'Memcached 400K QPS')
-
-#df_comb_400k_no_default = df_comb_400k[df_comb_400k['sys'] != 'linux_default']
-#df_comb_400k_no_default['opacity'] = (df_comb_400k_no_default['joules'] - df_comb_400k_no_default['joules'].min()) / (df_comb_400k_no_default['joules'].max() - df_comb_400k_no_default['joules'].min())
+                     title=f'Memcached-Silo 100K QPS')
         
 layout = html.Div([
-    html.H3('Memcached QPS 400K'),
+    html.H3('Memcached-Silo QPS 100K'),
     dcc.Link('Home', href='/'),
     html.Br(),
     
     dcc.Graph(
-        id='mcd4-edp-scatter',
+        id='mcdsilo10-edp-scatter',
         figure = edp_fig,
         style={'display': 'inline-block'},
     ),   
 
-    html.Div(id='mcd4-my-output'),
+    html.Div(id='mcdsilo10-my-output'),
     html.P('SYS = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-sys-dd',
+    dcc.Dropdown(id='mcdsilo10-sys-dd',
                  options=[
                      {'label': 'linux_tuned', 'value': 'linux_tuned'},
                      {'label': 'linux_default', 'value': 'linux_default'},
@@ -73,7 +71,7 @@ layout = html.Div([
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.P('Run_Number = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-i-dd',                 
+    dcc.Dropdown(id='mcdsilo10-i-dd',                 
                  options=[
                      {'label': 0, 'value': 0},
                      {'label': 1, 'value': 1},
@@ -87,7 +85,7 @@ layout = html.Div([
     ),
     html.Br(),
     html.P('ITR = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-itr-dd',
+    dcc.Dropdown(id='mcdsilo10-itr-dd',
                  options=[
                      {'label': 50, 'value': 50},
                      {'label': 100, 'value': 100},
@@ -100,15 +98,13 @@ layout = html.Div([
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.P('DVFS = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-dvfs-dd',
+    dcc.Dropdown(id='mcdsilo10-dvfs-dd',
                  options=[
-                     {'label': '0xd00', 'value': '0xd00'},
-                     {'label': '0xf00', 'value': '0xf00'},
-                     {'label': '0x1100', 'value': '0x1100'},
-                     {'label': '0x1300', 'value': '0x1300'},
-                     {'label': '0x1500', 'value': '0x1500'},
+                     {'label': '0x1800', 'value': '0x1800'},
                      {'label': '0x1900', 'value': '0x1900'},
+                     {'label': '0x1a00', 'value': '0x1a00'},
                      {'label': '0x1b00', 'value': '0x1b00'},
+                     {'label': '0x1c00', 'value': '0x1c00'},
                      {'label': '0x1d00', 'value': '0x1d00'},
                      {'label': '0xffff', 'value': '0xffff'},
                  ],
@@ -117,17 +113,18 @@ layout = html.Div([
     ),
     html.Br(),
     html.P('RAPL = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-rapl-dd',
+    dcc.Dropdown(id='mcdsilo10-rapl-dd',
                  options=[
                      {'label': 135, 'value': 135},
                      {'label': 95, 'value': 95},
+                     {'label': 75, 'value': 75},
                      {'label': 55, 'value': 55},
                  ],
                  value=135,
                  style={'display': 'inline-block', 'width':'40%'}
     ),
     html.P('CORE = ', style={'display': 'inline-block'}),
-    dcc.Dropdown(id='mcd4-core-dd',
+    dcc.Dropdown(id='mcdsilo10-core-dd',
                  options=[
                      {'label': '0', 'value': 0},
                      {'label': '1', 'value': 1},
@@ -143,8 +140,7 @@ layout = html.Div([
                      {'label': '11', 'value': 11},
                      {'label': '12', 'value': 12},
                      {'label': '13', 'value': 13},
-                     {'label': '14', 'value': 14},
-                     {'label': '15', 'value': 15}
+                     {'label': '14', 'value': 14}
                  ],
                  value=0,
                  style={'display': 'inline-block'}
@@ -154,65 +150,65 @@ layout = html.Div([
         html.Hr(),
         html.Br()
     ]),
-    html.Button(id='mcd4-btn', children='Update Plots', n_clicks=0),
+    html.Button(id='mcdsilo10-btn', children='Update Plots', n_clicks=0),
     html.Br(),
     dcc.Graph(
-        id='mcd4-timeline-1',
+        id='mcdsilo10-timeline-1',
         style={'display': 'inline-block'},
     ),
     
     dcc.Graph(
-        id='mcd4-timeline-2',
+        id='mcdsilo10-timeline-2',
         style={'display': 'inline-block'},
     ),
     
     dcc.Graph(
-        id='mcd4-timeline-3',
+        id='mcdsilo10-timeline-3',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-4',
+        id='mcdsilo10-timeline-4',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-5',
+        id='mcdsilo10-timeline-5',
         style={'display': 'inline-block'},
     ),
     
     dcc.Graph(
-        id='mcd4-timeline-6',
+        id='mcdsilo10-timeline-6',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-7',
+        id='mcdsilo10-timeline-7',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-8',
+        id='mcdsilo10-timeline-8',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-9',
+        id='mcdsilo10-timeline-9',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-10',
+        id='mcdsilo10-timeline-10',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-11',
+        id='mcdsilo10-timeline-11',
         style={'display': 'inline-block'},
     ),
 
     dcc.Graph(
-        id='mcd4-timeline-12',
+        id='mcdsilo10-timeline-12',
         style={'display': 'inline-block'},
     ),
     
@@ -222,26 +218,26 @@ layout = html.Div([
     ]),
     
     html.Div([
-        dcc.Dropdown(id='mcd4-xaxis-selector-1', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='mcd4-yaxis-selector-1', value='joules', style={'width':'60%'}, options=axis_values),        
+        dcc.Dropdown(id='mcdsilo10-xaxis-selector-1', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcdsilo10-yaxis-selector-1', value='joules', style={'width':'60%'}, options=axis_values),        
         dcc.Graph(
-            id='mcd4-custom-scatter-1', style={'display': 'inline-block'}
+            id='mcdsilo10-custom-scatter-1', style={'display': 'inline-block'}
         )
     ], style={'display': 'inline-block'}),
         
     html.Div([
-        dcc.Dropdown(id='mcd4-xaxis-selector-2', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='mcd4-yaxis-selector-2', value='joules', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcdsilo10-xaxis-selector-2', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcdsilo10-yaxis-selector-2', value='joules', style={'width':'60%'}, options=axis_values),
         dcc.Graph(
-            id='mcd4-custom-scatter-2', style={'display': 'inline-block'}
+            id='mcdsilo10-custom-scatter-2', style={'display': 'inline-block'}
         ),
     ], style={'display': 'inline-block'}),
 
     html.Div([
-        dcc.Dropdown(id='mcd4-xaxis-selector-3', value='time', style={'width':'60%'}, options=axis_values),
-        dcc.Dropdown(id='mcd4-yaxis-selector-3', value='joules', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcdsilo10-xaxis-selector-3', value='time', style={'width':'60%'}, options=axis_values),
+        dcc.Dropdown(id='mcdsilo10-yaxis-selector-3', value='joules', style={'width':'60%'}, options=axis_values),
         dcc.Graph(
-            id='mcd4-custom-scatter-3',
+            id='mcdsilo10-custom-scatter-3',
             style={'display': 'inline-block'}
         ),
     ], style={'display': 'inline-block'}),
@@ -253,21 +249,21 @@ layout = html.Div([
                   
     html.Div([
         html.P('X = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-xaxis-selector-3d-1', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-xaxis-selector-3d-1', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Y = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-yaxis-selector-3d-1', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-yaxis-selector-3d-1', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Z = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-zaxis-selector-3d-1', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-zaxis-selector-3d-1', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         html.P('Color = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-color-selector-3d-1', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-color-selector-3d-1', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Symbol = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-symbol-selector-3d-1', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-symbol-selector-3d-1', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Size = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-size-selector-3d-1', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-size-selector-3d-1', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         dcc.Graph(
-            id='mcd4-custom-scatter3d-1',
+            id='mcdsilo10-custom-scatter3d-1',
             style={'display': 'inline-block'},
         ),
     ]),
@@ -275,21 +271,21 @@ layout = html.Div([
     html.Br(),
     html.Div([
         html.P('X = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-xaxis-selector-3d-2', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-xaxis-selector-3d-2', value='time', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Y = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-yaxis-selector-3d-2', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-yaxis-selector-3d-2', value='itr', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Z = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-zaxis-selector-3d-2', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-zaxis-selector-3d-2', value='joules', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         html.P('Color = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-color-selector-3d-2', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-color-selector-3d-2', value='sys', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Symbol = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-symbol-selector-3d-2', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-symbol-selector-3d-2', value='dvfs', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.P('Size = ', style={'display': 'inline-block'}),
-        dcc.Dropdown(id='mcd4-size-selector-3d-2', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
+        dcc.Dropdown(id='mcdsilo10-size-selector-3d-2', value='rapl', options=axis_values, style={'display': 'inline-block', 'width':'30%'}),
         html.Br(),
         dcc.Graph(
-            id='mcd4-custom-scatter3d-2',
+            id='mcdsilo10-custom-scatter3d-2',
             style={'display': 'inline-block'},
         ),
     ])
@@ -298,13 +294,13 @@ layout = html.Div([
 ])
 
 @app.callback(
-    Output('mcd4-i-dd', 'value'),
-    Output('mcd4-itr-dd', 'value'),
-    Output('mcd4-rapl-dd', 'value'),
-    Output('mcd4-dvfs-dd', 'value'),
-    Output('mcd4-core-dd', 'value'),
-    Output('mcd4-sys-dd', 'value'),
-    [Input('mcd4-edp-scatter', 'clickData')]
+    Output('mcdsilo10-i-dd', 'value'),
+    Output('mcdsilo10-itr-dd', 'value'),
+    Output('mcdsilo10-rapl-dd', 'value'),
+    Output('mcdsilo10-dvfs-dd', 'value'),
+    Output('mcdsilo10-core-dd', 'value'),
+    Output('mcdsilo10-sys-dd', 'value'),
+    [Input('mcdsilo10-edp-scatter', 'clickData')]
 )
 def update_timeline_plots1(clickData):
     print(clickData)
@@ -365,24 +361,24 @@ def getFig(m, non0j=False, scatter=False):
     return fig1
 
 @app.callback(
-#    Output('mcd4-my-output', 'children'),
-    Output('mcd4-timeline-1', 'figure'),
-    Output('mcd4-timeline-2', 'figure'),
-    Output('mcd4-timeline-3', 'figure'),
-    Output('mcd4-timeline-4', 'figure'),
-    Output('mcd4-timeline-5', 'figure'),
-    Output('mcd4-timeline-6', 'figure'),
-    Output('mcd4-timeline-7', 'figure'),
-    Output('mcd4-timeline-8', 'figure'),
-    Output('mcd4-timeline-9', 'figure'),
-    Output('mcd4-timeline-10', 'figure'),
-    [Input('mcd4-btn', 'n_clicks')],
-    [State('mcd4-i-dd', 'value'),
-     State('mcd4-itr-dd', 'value'),
-     State('mcd4-rapl-dd', 'value'),
-     State('mcd4-dvfs-dd', 'value'),
-     State('mcd4-core-dd', 'value'),
-     State('mcd4-sys-dd', 'value')]
+#    Output('mcdsilo10-my-output', 'children'),
+    Output('mcdsilo10-timeline-1', 'figure'),
+    Output('mcdsilo10-timeline-2', 'figure'),
+    Output('mcdsilo10-timeline-3', 'figure'),
+    Output('mcdsilo10-timeline-4', 'figure'),
+    Output('mcdsilo10-timeline-5', 'figure'),
+    Output('mcdsilo10-timeline-6', 'figure'),
+    Output('mcdsilo10-timeline-7', 'figure'),
+    Output('mcdsilo10-timeline-8', 'figure'),
+    Output('mcdsilo10-timeline-9', 'figure'),
+    Output('mcdsilo10-timeline-10', 'figure'),
+    [Input('mcdsilo10-btn', 'n_clicks')],
+    [State('mcdsilo10-i-dd', 'value'),
+     State('mcdsilo10-itr-dd', 'value'),
+     State('mcdsilo10-rapl-dd', 'value'),
+     State('mcdsilo10-dvfs-dd', 'value'),
+     State('mcdsilo10-core-dd', 'value'),
+     State('mcdsilo10-sys-dd', 'value')]
 )
 def update_plots(n_clicks, i, itr, rapl, dvfs, core, sys):
     global global_linux_default_df
@@ -403,23 +399,18 @@ def update_plots(n_clicks, i, itr, rapl, dvfs, core, sys):
     START_RDTSC=0
     END_RDTSC=0
     num_interrupts = 0
-    qps = 400000
+    qps = 100000
     
     if sys == 'linux_tuned' or sys == 'linux_default':        
-        frdtscname = f'{log_loc}/linux.mcd.rdtsc.{i}_{itr}_{dvfs}_{rapl}_{qps}'
+        frdtscname = f'{log_loc}/linux.mcdsilo.rdtsc.{i}_{itr}_{dvfs}_{rapl}_{qps}'
         frdtsc = open(frdtscname, 'r')
         for line in frdtsc:
             tmp = line.strip().split(' ')
             if int(tmp[2]) > START_RDTSC:                                
-                START_RDTSC = int(tmp[2])
-            
-            if END_RDTSC == 0:                                
-                END_RDTSC = int(tmp[3])
-            elif END_RDTSC < int(tmp[3]):
-                END_RDTSC = int(tmp[3])                                                            
+                START_RDTSC = int(tmp[2])                                                                 
         frdtsc.close()
 
-        fname = f'{log_loc}/linux.mcd.dmesg.{i}_{core}_{itr}_{dvfs}_{rapl}_{qps}'
+        fname = f'{log_loc}/linux.mcdsilo.dmesg.{i}_{core}_{itr}_{dvfs}_{rapl}_{qps}'
         if sys == 'linux_tuned':
             global_linux_tuned_df, global_linux_tuned_df_non0j = updateDF(fname, START_RDTSC, END_RDTSC)
             #update plot name
@@ -463,11 +454,12 @@ def updateDF(fname, START_RDTSC, END_RDTSC, ebbrt=False):
     else:
         df = pd.read_csv(fname, sep=' ', names=LINUX_COLS)
     ## filter out timestamps
-    df = df[df['timestamp'] >= START_RDTSC]
-    df = df[df['timestamp'] <= END_RDTSC]
+    df = df[df['timestamp'] >= START_RDTSC]    
     #converting timestamps
     df['timestamp'] = df['timestamp'] - df['timestamp'].min()
     df['timestamp'] = df['timestamp'] * TIME_CONVERSION_khz
+    df = df[df['timestamp'] <= 20.0]
+    
     # update timestamp_diff
     df['timestamp_diff'] = df['timestamp'].diff()
     df.dropna(inplace=True)
@@ -492,9 +484,9 @@ def updateDF(fname, START_RDTSC, END_RDTSC, ebbrt=False):
 
 for i in range(1, 4):
     @app.callback(
-        Output('mcd4-custom-scatter-'+str(i), 'figure'),
-        [Input('mcd4-xaxis-selector-'+str(i), 'value'),
-         Input('mcd4-yaxis-selector-'+str(i), 'value')]
+        Output('mcdsilo10-custom-scatter-'+str(i), 'figure'),
+        [Input('mcdsilo10-xaxis-selector-'+str(i), 'value'),
+         Input('mcdsilo10-yaxis-selector-'+str(i), 'value')]
     )
     def update_custom_scatter(xcol, ycol):
         fig = px.scatter(df_comb, 
@@ -509,13 +501,13 @@ for i in range(1, 4):
 
 for i in range(1, 2):
     @app.callback(
-        Output('mcd4-custom-scatter3d-'+str(i), 'figure'),
-        [Input('mcd4-xaxis-selector-3d-'+str(i), 'value'),
-         Input('mcd4-yaxis-selector-3d-'+str(i), 'value'),
-         Input('mcd4-zaxis-selector-3d-'+str(i), 'value'),
-         Input('mcd4-color-selector-3d-'+str(i), 'value'),
-         Input('mcd4-symbol-selector-3d-'+str(i), 'value'),
-         Input('mcd4-size-selector-3d-'+str(i), 'value')]
+        Output('mcdsilo10-custom-scatter3d-'+str(i), 'figure'),
+        [Input('mcdsilo10-xaxis-selector-3d-'+str(i), 'value'),
+         Input('mcdsilo10-yaxis-selector-3d-'+str(i), 'value'),
+         Input('mcdsilo10-zaxis-selector-3d-'+str(i), 'value'),
+         Input('mcdsilo10-color-selector-3d-'+str(i), 'value'),
+         Input('mcdsilo10-symbol-selector-3d-'+str(i), 'value'),
+         Input('mcdsilo10-size-selector-3d-'+str(i), 'value')]
     )
     def update_custom_scatter3d(xcol, ycol, zcol, c, sym, sz):
         fig = px.scatter_3d(df_comb, 
