@@ -3,12 +3,18 @@ from bayes_opt import BayesianOptimization, UtilityFunction
 
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 import matplotlib.pylab as plt
 from matplotlib import gridspec
 import itertools
+import pickle
 import pdb
+import os
 
 plt.ion()
+global_accesses = {}
+
+key = namedtuple('key', ['workload', 'sys', 'conf', 'n_init_points', 'kappa', 'n_exp'])
 
 def run(debug=False):
     config = {'netpipe': [('msg', 64), ('msg', 8192), ('msg', 65536), ('msg', 524288)],
@@ -61,10 +67,14 @@ def run(debug=False):
                         for kappa in [1, 5, 10, 20]: #kappa values
                             for n_exp in range(1): #number of trials                            
                                 print(f'------{workload} {conf} n_init={n_init_points} n_iter={n_iter} kappa={kappa} n_exp={n_exp}-------')
+
                                 optimizer = BayesianOptimization(obj, domain_dict) #randomly generate points
+                                global_accesses = {}
+
                                 optimizer.maximize(init_points=n_init_points, n_iter=n_iter, kappa=kappa)
             
-                                results[(workload, sys, conf, n_init_points, kappa, n_exp)] = (optimizer, df_lookup['edp_mean'].max(), df_lookup.shape[0], df_lookup['edp_mean'].sort_values())
+                                k = key(workload, sys, conf, n_init_points, kappa, n_exp)
+                                results[k] = (optimizer, df_lookup['edp_mean'].max(), df_lookup.shape[0], df_lookup['edp_mean'].sort_values())
 
     return results
 
@@ -136,6 +146,8 @@ def objective_interp(df, index_cols, uniq_val_dict, debug=False, **kwargs):
     for idx in range(len(space)):
         corner = space[idx]
 
+        global_accesses[corner] = 1
+
         if debug: print(corner, df.head())
         try:
             assert(isinstance(df.loc[corner], pd.Series))
@@ -148,3 +160,44 @@ def objective_interp(df, index_cols, uniq_val_dict, debug=False, **kwargs):
         edp_avg += coefficients[idx] * edp_val
 
     return edp_avg
+
+def save_results(r, filename):
+    s = {}
+    for key in r:
+        s[key] = (r[key][0].res, *r[key][1:])
+
+    pickle.dump(s, open(filename, 'wb'))
+
+def read_results(filename):
+    return pickle.load(open(filename, 'rb'))
+
+def plot(r, tag, loc='plots'):
+    for k in r:
+        plt.figure(figsize=(10,7))
+        plt.plot(np.array(r[k][3]))
+        plt.xlabel('Unique parameter configuration')
+        plt.ylabel('-EDP')
+
+        bayesopt_max = np.max([elem['target'] for elem in r[k][0]])
+        global_max = r[k][3].max()
+        plt.title(f'{str(k)}\nglobal_min={-global_max:.2f} bayesopt_min={-bayesopt_max:.2f}')
+
+        N = r[k][3].shape[0]
+        for elem in r[k][0]:        
+            plt.plot(np.arange(N), [elem['target']]*N, color='r')
+
+        if not os.path.exists(loc):
+            os.makedirs(loc)
+
+        #hard-coded for now
+        dirname = f"plots_{getattr(k, 'workload')}_{str(getattr(k, 'conf'))}_{getattr(k, 'sys')}"
+        if not os.path.exists(f'{loc}/{dirname}'):
+            os.makedirs(f'{loc}/{dirname}')
+
+        filename = f'{tag}_'
+        for f in k._fields:
+            filename += f'{f}{getattr(k, f)}_'
+        filename = filename.rstrip('_') + '.png'
+
+        plt.savefig(os.path.join(loc, dirname, filename))
+        plt.close()
