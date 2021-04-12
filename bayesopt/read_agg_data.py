@@ -129,7 +129,7 @@ def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
 
 def start_mcd_analysis(drop_outliers=False, scale_requests=True):
     '''TODO: Merge with start_nodejs_analysis'''
-    df_linux = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'linux_mcd.csv'), sep=' ')
+    df_linux = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'mcd_combined.csv'), sep=' ')
     #df_ebbrt = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'ebbrt_mcd.csv'), sep=' ')
     #df = pd.concat([df_linux, df_ebbrt], axis=0)
     df = df_linux
@@ -146,12 +146,13 @@ def start_mcd_analysis(drop_outliers=False, scale_requests=True):
 
         return df
 
-    df = cluster_qps_values(df)
+    #df = cluster_qps_values(df)
+    df['QPS'] = df['target_QPS']
 
     #drop time < 30s
     print('Dropping rows with time <= 29')
     print(f'Before: {df.shape[0]}')
-    df = df[df['time']>29].copy()
+    df = df[df['time']>19].copy()
     print(f'After: {df.shape[0]}\n')
 
     #drop 99th percentile > 500 latencies
@@ -170,11 +171,13 @@ def start_mcd_analysis(drop_outliers=False, scale_requests=True):
                          'llc_miss',
                          'c3',
                          'c6',
-                         'c7']
+                         #'c7']
 
-        SCALE_FACTOR = 5000000. / (d['QPS_uncorrected']*d['time'])
+        #SCALE_FACTOR = 5000000. / (d['QPS_uncorrected']*d['time'])
+        SCALE_FACTOR = 5000000. / (d['measure_QPS']*d['time'])
 
         for c in COLS_TO_SCALE:
+            # d[c] = pd.to_numeric(d[c], errors='coerce') * SCALE_FACTOR
             d[c] = d[c] * SCALE_FACTOR
 
         return d
