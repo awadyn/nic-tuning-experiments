@@ -1,76 +1,75 @@
-def compute_features_from_logs(loc, N_parallel=4):
-    def compute_entropy(df, colname, nonzero=False):
-        x  = df[colname].value_counts()
+import re
+import os
+from os import path
+import sys
+import time
+import numpy as np
+import pandas as pd
 
-        if nonzero:
-            x = x[x.index > 0]
+LINUX_COLS = ['i', 
+              'rx_desc', 
+              'rx_bytes', 
+              'tx_desc', 
+              'tx_bytes', 
+              'instructions', 
+              'cycles', 
+              'ref_cycles', 
+              'llc_miss', 
+              'c1', 
+              'c1e', 
+              'c3', 
+              'c6', 
+              'c7', 
+              'joules', 
+              'timestamp']
+TIME_CONVERSION_khz = 1./(2899999*1000)
+JOULE_CONVERSION = 0.00001526
 
-        x = x / x.sum() #scipy.stats.entropy actually automatically normalizes
+'''
+Might need files from all cores for some metrics
+Features need to be carefully chosen unlike here
+'''
 
-        return entropy(x)
+def parse_logs_to_df(fname):
+    df = pd.read_csv(fname, sep=' ', names=LINUX_COLS)
+    #df = df[(df['timestamp'] >= START_RDTSC) & (df['timestamp'] <= END_RDTSC)]
 
-    def featurize(file, data):
-        '''Modify with new features
-        '''
-        df = pd.read_csv(file, sep=' ')
-        df_non0j = df[df['joules'] > 0].copy()
+    df_non0j = df[(df['joules']>0) & (df['instructions'] > 0) & (df['cycles'] > 0) & (df['ref_cycles'] > 0) & (df['llc_miss'] > 0)].copy()
+    df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
+    df_non0j['timestamp'] = df_non0j['timestamp'] * TIME_CONVERSION_khz
+    df_non0j['joules'] = df_non0j['joules'] * JOULE_CONVERSION
 
-        #non-zero joules
-        df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()
-        df_non0j['joules'] = df_non0j['joules'] - df_non0j['joules'].min()
-        
-        df_non0j['timestamp'] = df_non0j['timestamp'] * TIME_CONVERSION
-        df_non0j['joules'] = df_non0j['joules'] * JOULE_CONVERSION
+    tmp = df_non0j[['instructions', 'cycles', 'ref_cycles', 'llc_miss', 'joules', 'c1', 'c1e', 'c3', 'c6', 'c7']].diff()
+    tmp.columns = [f'{c}_diff' for c in tmp.columns]
+    df_non0j = pd.concat([df_non0j, tmp], axis=1)
+    df_non0j.dropna(inplace=True)
+    df.dropna(inplace=True)
+    df_non0j = df_non0j[df_non0j['joules_diff'] > 0]
 
-        #add features here
-        d = {'name': file}        
-        for col in ['rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes']:
-            d[f'entropy_{col}'] = compute_entropy(df, col, nonzero=False)
-            d[f'entropy_nonzero_{col}'] = compute_entropy(df, col, nonzero=True)
+    return df, df_non0j
 
-        tags = file.split('.')[-2]
-        rnd, cpu, msg, nrounds, itr, dvfs, rapl = tags.split('_')
-        d['rnd'] = int(rnd)
-        d['cpu'] = int(cpu)
-        d['msg'] = int(msg)
-        d['nrounds'] = int(nrounds)
-        d['itr'] = int(itr)
-        d['dvfs'] = dvfs
-        d['rapl'] = int(rapl)
+def compute_features(df_non0j):
+    return df_non0j.mean() #random placeholder
 
-        last_row = df_non0j.tail(1).iloc[0]
-        d['joules'] = last_row['joules']
-        d['time'] = last_row['timestamp']
-        d['edp'] = 0.5 * d['joules'] * d['time']
-        d['n_interrupts'] = df.shape[0]
-        d['n_nonzero_interrupts'] = df[df['rx_bytes']>0].shape[0]
+def compute_entropy(df, colname, nonzero=False):
+    x  = df[colname].value_counts()
 
-        cols = ['rx_desc', 'tx_desc', 'rx_bytes', 'tx_bytes']
-        corr = df[cols].corr()
-        for i in range(len(cols)):
-            for j in range(i):
-                d[f'corr_{cols[i]}_{cols[j]}'] = corr[cols[i]][cols[j]]
+    if nonzero:
+        x = x[x.index > 0]
 
-        data.append(d)
+    x = x / x.sum() #scipy.stats.entropy actually automatically normalizes
 
-    manager = Manager()
-    data = manager.list()
-    plist = []
+    return entropy(x)
 
-    N_current = 0
-    for file in glob.glob(f'{loc}'):
-
-        p = Process(target=featurize, args=(file, data))
-        p.start()
-        N_current += 1
-
-        plist.append(p)
-
-        if N_current % N_parallel == 0:
-            [p.join() for p in plist]
-
-    data = list(data)
-    data = pd.DataFrame(data)
-    data.set_index(['name', 'rnd', 'cpu', 'msg', 'nrounds', 'itr', 'dvfs', 'rapl'], inplace=True)
+if __name__=='__main__':
+    if len(sys.argv) != 3:
+        raise ValueError("Usage: python featurizer.py [dmesg log] [loc]")
     
-    return data
+    fname = sys.argv[1]
+    loc = sys.argv[2]
+    outfile = loc + '/' + fname.split('/')[-1] + '_features.csv'
+
+    df, df_non0j = parse_logs_to_df(fname)
+    features = compute_features(df_non0j)
+
+    features.to_csv(outfile)
