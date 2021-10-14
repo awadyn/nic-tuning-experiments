@@ -108,12 +108,6 @@ def plot(r, tag, loc=None):
         plt.plot(np.array(r[k][4]))
         plt.xlabel('Unique parameter configuration')
         plt.ylabel('EDP')
-
-        0: history.query_points, 
-        1: history.query_vals, 
-        2: df_lookup['edp_mean'].min(), 
-        3: df_lookup.shape[0], 
-        4: df_lookup['edp_mean'].sort_values()
         
         bayesopt_min = np.min(r[k][1])
         global_min = r[k][2]
