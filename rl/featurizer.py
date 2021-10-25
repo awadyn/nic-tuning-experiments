@@ -109,7 +109,7 @@ if __name__=='__main__':
     loc = sys.argv[2]
     outfile = loc + '/' + fname.split('/')[-1] + '_features.csv'
 
-    df, df_non0j = parse_logs_to_df(fname) #log file -> dataframe
+    df, df_non0j, fname = parse_logs_to_df(fname) #log file -> dataframe
     features = compute_features(df, df_non0j, fname) #dataframe -> vector of features
 
-    features.to_csv(outfile, index=[0])
+    pd.DataFrame(features, index=[0]).to_csv(outfile, index=False)
