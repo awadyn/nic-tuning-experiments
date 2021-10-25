@@ -46,10 +46,50 @@ def parse_logs_to_df(fname):
     df.dropna(inplace=True)
     df_non0j = df_non0j[df_non0j['joules_diff'] > 0]
 
-    return df, df_non0j
+    return df, df_non0j, fname
 
-def compute_features(df_non0j):
-    return df_non0j.mean() #random placeholder
+def compute_features(df, df_non0j, fname):
+    '''Features for each log file
+    '''
+    
+    #chunk the file -> K interrupts
+    #tx_bytes -> compute_entropy
+    #tx_bytes -> 10, 25, 50, 75, 90 percentiles ...
+    #percentiles, standard deviation, entropy
+
+    #intuition: describe the "true" state of the OS/system
+    
+    percentile_list = [1, 10, 25, 50, 75, 90, 99] #MOVE TO CONFIG
+
+    features = {'fname': fname}
+    for col in ['instructions',
+                'cycles',
+                'ref_cycles',
+                'llc_miss',
+                'c1',
+                'c1e',
+                'c3',
+                'c6',
+                'c7',
+                'joules']:
+
+        pcs = np.percentile(df_non0j[col], percentile_list)
+
+        for i in range(len(percentile_list)):
+            features[f'{col}_{percentile_list[i]}'] = pcs[i]
+
+    for col in ['rx_desc',
+                'rx_bytes',
+                'tx_desc',
+                'tx_bytes']:
+
+        pcs = np.percentile(df[col], percentile_list)
+
+        for i in range(len(percentile_list)):
+            features[f'{col}_{percentile_list[i]}'] = pcs[i]
+
+
+    return features
 
 def compute_entropy(df, colname, nonzero=False):
     x  = df[colname].value_counts()
@@ -69,7 +109,7 @@ if __name__=='__main__':
     loc = sys.argv[2]
     outfile = loc + '/' + fname.split('/')[-1] + '_features.csv'
 
-    df, df_non0j = parse_logs_to_df(fname)
-    features = compute_features(df_non0j)
+    df, df_non0j = parse_logs_to_df(fname) #log file -> dataframe
+    features = compute_features(df, df_non0j, fname) #dataframe -> vector of features
 
-    features.to_csv(outfile)
+    features.to_csv(outfile, index=[0])
