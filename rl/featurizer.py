@@ -88,6 +88,8 @@ def compute_features(df, df_non0j, fname):
         for i in range(len(percentile_list)):
             features[f'{col}_{percentile_list[i]}'] = pcs[i]
 
+    features['joules_per_interrupt'] = df_non0j['joules'].sum() / df.shape[0]
+    features['time_per_interrupt'] = df_non0j['timestamp'].max() / df.shape[0]
 
     return features
 
