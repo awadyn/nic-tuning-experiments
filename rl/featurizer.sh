@@ -7,15 +7,18 @@ NPARALLEL=10
 
 #rm features/*.csv
 
+SRC_DIR='data/qps_200000/'
+TARGET_DIR='./features'
+
 COUNTER=0
-for f in data/qps_200000/*dmesg*
+for f in $SRC_DIR/*dmesg*
 do
     echo $f
-    python featurizer.py $f ./features &
+    python featurizer.py $f $TARGET_DIR &
     #sleep 10 &
     if [[ $(($COUNTER % $NPARALLEL)) -eq 0 ]]
     then
-	wait
+	   wait
     fi
 
     COUNTER=$(($COUNTER+1))

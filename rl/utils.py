@@ -1,6 +1,7 @@
 import os
 import glob
 import numpy as np
+import pandas as pd
 
 def get_params(loc, tag='linux.mcd.dmesg'):
     fnames = glob.glob(f'{loc}/*')
@@ -51,4 +52,21 @@ def check_grid(tag_dict, fname_dict):
 
     return missing_list
 
+def combine_data(loc):
+    #HARDCODED: Fix
+    df_list = []
 
+    for f in glob.glob(f'{loc}/*.csv'):
+        df = pd.read_csv(f)
+        df_list.append(df)
+
+    df = pd.concat(df_list, axis=0).reset_index()
+
+    #sys, workload, qps, 
+    df['itr'] = df['fname'][0].split('/')[-1].split('.')[-1].split('_')[2]
+    df['dvfs'] = df['fname'][0].split('/')[-1].split('.')[-1].split('_')[3]
+    df['rapl'] = df['fname'][0].split('/')[-1].split('.')[-1].split('_')[4]
+
+
+
+    return df

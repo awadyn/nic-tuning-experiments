@@ -1,4 +1,4 @@
-class PolicyGradient:
+ class PolicyGradient:
     def __init__(self, data, N_inputs, N_nodes, N_layers, activation, output_activation, df):
         self.data = data
 

@@ -58,6 +58,9 @@ def compute_features(df, df_non0j, fname):
     #percentiles, standard deviation, entropy
 
     #intuition: describe the "true" state of the OS/system
+
+    #TODO: RDTSC
+    #TODO: LATENCY <- energy, time, latency numbers
     
     percentile_list = [1, 10, 25, 50, 75, 90, 99] #MOVE TO CONFIG
 
