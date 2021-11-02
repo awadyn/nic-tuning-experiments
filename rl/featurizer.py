@@ -60,6 +60,13 @@ def parse_logs_to_df(fname, debug=False):
     rdtsc_fname = f'{loc}/linux.mcd.rdtsc.{desc}' 
     out_fname = f'{loc}/linux.mcd.out.{desc}' 
 
+    #read latencies
+    with open(out_fname, 'r') as f:
+        lines = f.readlines()
+    header = lines[0].rstrip('\n').split()
+    read_lat = lines[1].rstrip('\n').split()
+    lat = {'read': dict(zip(header[1:], [float(y) for y in read_lat[1:]]))}
+
     START_RDTSC, END_RDTSC = get_rdtsc(rdtsc_fname)
 
     df = pd.read_csv(fname, sep=' ', names=LINUX_COLS)
@@ -77,9 +84,9 @@ def parse_logs_to_df(fname, debug=False):
     df.dropna(inplace=True)
     df_non0j = df_non0j[df_non0j['joules_diff'] > 0]
 
-    return df, df_non0j, fname
+    return df, df_non0j, fname, lat
 
-def compute_features(df, df_non0j, fname):
+def compute_features(df, df_non0j, fname, lat):
     '''Features for each log file
     '''
     
@@ -125,6 +132,9 @@ def compute_features(df, df_non0j, fname):
     features['joules_per_interrupt'] = df_non0j['joules'].sum() / df.shape[0]
     features['time_per_interrupt'] = df_non0j['timestamp'].max() / df.shape[0]
 
+    for l in lat['read']:
+        features[f'read_{l}'] = lat['read'][l]
+
     return features
 
 def compute_entropy(df, colname, nonzero=False):
@@ -145,7 +155,7 @@ if __name__=='__main__':
     loc = sys.argv[2]
     outfile = loc + '/' + fname.split('/')[-1] + '_features.csv'
 
-    df, df_non0j, fname = parse_logs_to_df(fname) #log file -> dataframe
-    features = compute_features(df, df_non0j, fname) #dataframe -> vector of features
+    df, df_non0j, fname, lat = parse_logs_to_df(fname) #log file -> dataframe
+    features = compute_features(df, df_non0j, fname, lat) #dataframe -> vector of features
 
     pd.DataFrame(features, index=[0]).to_csv(outfile, index=False)

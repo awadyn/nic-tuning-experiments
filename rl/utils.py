@@ -65,8 +65,6 @@ def combine_data(loc):
     if df.shape[0]==0:
         raise ValueError(f"No data found {loc}")
 
-    #remove default policy
-
     #determine workload
     fname = df['fname'][0]
     workload = fname.split('/')[-1].split('.')[1]
@@ -76,14 +74,14 @@ def combine_data(loc):
 
     #sys, workload, qps, 
     df['sys'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[0])
-    df['itr'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[2]
-)
-    df['dvfs'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[3]
-)
-    df['rapl'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[4]
-)
+    df['itr'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[2])
+    df['dvfs'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[3])
+    df['rapl'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[4])
 
     #remove default policy entries
     df = df[(df['dvfs']!='0xffff') | (df['itr']!=1)].copy()
+
+    if 'index' in df:
+        df.drop('index', axis=1, inplace=True)
 
     return df
