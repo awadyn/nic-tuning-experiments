@@ -30,9 +30,40 @@ Might need files from all cores for some metrics
 Features need to be carefully chosen unlike here
 '''
 
-def parse_logs_to_df(fname):
+def get_rdtsc(rdtsc_fname):
+    df = pd.read_csv(rdtsc_fname, header=None, sep=' ')
+
+    df[2] = df[2].astype(int)
+    df[3] = df[3].astype(int)
+
+    START_RDTSC = df[2].max()
+    END_RDTSC = df[3].min()
+
+    return START_RDTSC, END_RDTSC
+
+def parse_logs_to_df(fname, debug=False):
+    if fname.find('mcd')==-1:
+        raise ValueError("Passing mcd data. Ensure RDTSC logic below is correct.")
+
+    loc = '/'.join(fname.split('/')[:-1])
+    tag = fname.split('.')[-1].split('_')
+    desc = '_'.join(np.delete(tag, [1]))
+    expno = tag[0]
+
+    if debug:
+        print(fname) #data/qps_200000/linux.mcd.dmesg.1_10_100_0x1700_135_200000
+        print(loc) #data/qps_200000
+        print(tag) #['1', '10', '100', '0x1700', '135', '200000']
+        print(desc) #1_100_0x1700_135_200000
+        print(expno) #1
+
+    rdtsc_fname = f'{loc}/linux.mcd.rdtsc.{desc}' 
+    out_fname = f'{loc}/linux.mcd.out.{desc}' 
+
+    START_RDTSC, END_RDTSC = get_rdtsc(rdtsc_fname)
+
     df = pd.read_csv(fname, sep=' ', names=LINUX_COLS)
-    #df = df[(df['timestamp'] >= START_RDTSC) & (df['timestamp'] <= END_RDTSC)]
+    df = df[(df['timestamp'] >= START_RDTSC) & (df['timestamp'] <= END_RDTSC)]
 
     df_non0j = df[(df['joules']>0) & (df['instructions'] > 0) & (df['cycles'] > 0) & (df['ref_cycles'] > 0) & (df['llc_miss'] > 0)].copy()
     df_non0j['timestamp'] = df_non0j['timestamp'] - df_non0j['timestamp'].min()

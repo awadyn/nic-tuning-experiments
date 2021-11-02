@@ -1,5 +1,5 @@
 Questions:
-1. What to do about log files on multiple cores for mcd? Use just one? Combine? Features like percentiles should be stable (do stability test).
+1. What to do about log files on multiple cores (and multiple experiments) for mcd? Use just one? Combine? Features like percentiles should be stable (do stability test).
 
 Experiment 1:
 Stability of features over K features vs full log files
