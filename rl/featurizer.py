@@ -41,6 +41,16 @@ def get_rdtsc(rdtsc_fname):
 
     return START_RDTSC, END_RDTSC
 
+def get_latencies(out_fname):
+    #read latencies
+    with open(out_fname, 'r') as f:
+        lines = f.readlines()
+    header = lines[0].rstrip('\n').split()
+    read_lat = lines[1].rstrip('\n').split()
+    lat = {'read': dict(zip(header[1:], [float(y) for y in read_lat[1:]]))}
+
+    return lat
+
 def parse_logs_to_df(fname, debug=False):
     if fname.find('mcd')==-1:
         raise ValueError("Passing mcd data. Ensure RDTSC logic below is correct.")
@@ -60,14 +70,8 @@ def parse_logs_to_df(fname, debug=False):
     rdtsc_fname = f'{loc}/linux.mcd.rdtsc.{desc}' 
     out_fname = f'{loc}/linux.mcd.out.{desc}' 
 
-    #read latencies
-    with open(out_fname, 'r') as f:
-        lines = f.readlines()
-    header = lines[0].rstrip('\n').split()
-    read_lat = lines[1].rstrip('\n').split()
-    lat = {'read': dict(zip(header[1:], [float(y) for y in read_lat[1:]]))}
-
     START_RDTSC, END_RDTSC = get_rdtsc(rdtsc_fname)
+    lat = get_latencies(out_fname)
 
     df = pd.read_csv(fname, sep=' ', names=LINUX_COLS)
     df = df[(df['timestamp'] >= START_RDTSC) & (df['timestamp'] <= END_RDTSC)]
@@ -117,7 +121,7 @@ def compute_features(df, df_non0j, fname, lat):
         pcs = np.percentile(df_non0j[col], percentile_list)
 
         for i in range(len(percentile_list)):
-            features[f'{col}_{percentile_list[i]}'] = pcs[i]
+            features[f'{col}_{percentile_list[i]}'] =  pcs[i]
 
     for col in ['rx_desc',
                 'rx_bytes',
