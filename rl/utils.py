@@ -85,3 +85,36 @@ def combine_data(loc):
         df.drop('index', axis=1, inplace=True)
 
     return df
+
+def missing_rdtsc_out_files(loc, debug=False):
+    
+    def check_rdtsc_out_file(fname, debug=False):
+        loc = '/'.join(fname.split('/')[:-1])
+        tag = fname.split('.')[-1].split('_')
+        desc = '_'.join(np.delete(tag, [1]))
+        expno = tag[0]
+
+        if debug:
+            print(fname) #data/qps_200000/linux.mcd.dmesg.1_10_100_0x1700_135_200000
+            print(loc) #data/qps_200000
+            print(tag) #['1', '10', '100', '0x1700', '135', '200000']
+            print(desc) #1_100_0x1700_135_200000
+            print(expno) #1
+
+        rdtsc_fname = f'{loc}/linux.mcd.rdtsc.{desc}' 
+        out_fname = f'{loc}/linux.mcd.out.{desc}' 
+
+        rdtsc_found = False
+        out_found = False
+        
+        if os.path.exists(rdtsc_fname):
+            rdtsc_found = True
+        
+        if os.path.exists(out_fname):
+            out_found = True
+
+        if not (rdtsc_found and out_found):
+            print(f'Missing rdtsc of fname for: {fname}')
+
+    for fname in glob.glob(f'{loc}/linux.mcd.dmesg*'):
+        check_rdtsc_out_file(fname, debug=debug)

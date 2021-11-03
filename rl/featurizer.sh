@@ -11,7 +11,7 @@ SRC_DIR='data/qps_200000/'
 TARGET_DIR='./features'
 
 COUNTER=0
-for f in $SRC_DIR/*dmesg*
+for f in $SRC_DIR/*dmesg*.0_*
 do
     echo $f
     python featurizer.py $f $TARGET_DIR &
