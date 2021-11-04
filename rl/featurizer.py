@@ -118,7 +118,7 @@ def compute_features(df, df_non0j, fname, lat):
                 'c7',
                 'joules']:
 
-        pcs = np.percentile(df_non0j[col], percentile_list)
+        pcs = np.percentile(df_non0j[f'{col}_diff'], percentile_list)
 
         for i in range(len(percentile_list)):
             features[f'{col}_{percentile_list[i]}'] =  pcs[i]
@@ -133,7 +133,7 @@ def compute_features(df, df_non0j, fname, lat):
         for i in range(len(percentile_list)):
             features[f'{col}_{percentile_list[i]}'] = pcs[i]
 
-    features['joules_per_interrupt'] = df_non0j['joules'].sum() / df.shape[0]
+    features['joules_per_interrupt'] = df_non0j['joules_diff'].sum() / df.shape[0]
     features['time_per_interrupt'] = df_non0j['timestamp'].max() / df.shape[0]
 
     for l in lat['read']:
