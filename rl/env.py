@@ -62,23 +62,23 @@ class Workload(gym.Env):
             print(self.key)
             print(new_key)
 
-        if new_key not in self.key_list:
-            raise NotImplementedError() #open question: terminate the experiment
-
         #compute reward from previous state
-        reward = self.state['joules_per_interrupt'] #TODO: multiply latency here
-
-        #update state
-        self.key = new_key
-        self.state = self.state_dict[self.key]
-
-        self.current_time_sec += self.state['time_per_interrupt']
-
         done = False
+        info = {}
+        
+        reward = self.state['joules_per_interrupt'] #TODO: multiply latency here
+        self.current_time_sec += self.state['time_per_interrupt']
         if self.current_time_sec >= self.time_limit_sec:
             done = True
 
-        info = {}
+        if new_key not in self.key_list:
+            done = True
+            #raise NotImplementedError() #open question: terminate the experiment
+
+        #update state
+        if not done:
+            self.key = new_key
+            self.state = self.state_dict[self.key]
 
         return self.state, reward, done, info
 
@@ -102,12 +102,17 @@ class Workload(gym.Env):
     def episode_trial(self, N=10):
         self.reset()
 
+        history = [self.key]
         for _ in range(N):
             action = (np.random.randint(3)-1, np.random.randint(3)-1, 0)
             print('---------')
             print(action)
-            _ = self.step(action, debug=True)
+            _,_,done,_ = self.step(action, debug=True)
+            history.append(self.key)
+            if done:
+                break
 
+        return history
 
 '''
 workload fixed:
