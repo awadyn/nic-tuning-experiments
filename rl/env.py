@@ -85,6 +85,8 @@ class Workload(gym.Env):
     def reset(self):
         self.state, self.key = self.init_state()
 
+        self.current_time_sec = 0
+
     def render(self):
         pass
 
@@ -96,6 +98,16 @@ class Workload(gym.Env):
         state = self.state_dict[key]
 
         return state, key
+
+    def episode_trial(self, N=10):
+        self.reset()
+
+        for _ in range(N):
+            action = (np.random.randint(3)-1, np.random.randint(3)-1, 0)
+            print('---------')
+            print(action)
+            _ = self.step(action, debug=True)
+
 
 '''
 workload fixed:
