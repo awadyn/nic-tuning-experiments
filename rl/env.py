@@ -3,14 +3,42 @@ from gym import spaces
 
 import numpy as np
 
+def prepare_action_dicts(df):
+
+    def get_col_dict(colname):
+        l = np.sort(df[colname].unique())
+        
+        l_p1 = np.roll(l, shift=-1)
+        l_p1[-1] = -1 #invalid choice
+        
+        l_m1 = np.roll(l, shift=1)
+        l_m1[0] = -1 #invalid
+        
+        d = {}
+        for idx, elem in enumerate(l):
+            d[elem] = {-1: l_m1[idx], 0: elem, 1: l_p1[idx]}
+
+        return d
+
+    d = {}
+    col_list = []
+    for colname in ['itr', 'dvfs', 'rapl']:
+        col_list.append(colname)
+        d[colname] = get_col_dict(colname)
+
+    return d, col_list
+
+
 class Workload(gym.Env):
     def __init__(self, df):
         super(Workload, self).__init__()
 
+        #basic data structures
         state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
 
         self.state_dict = state_dict #maps (itr, dvfs, rapl, [qps, workload]) -> state
         self.key_list = list(self.state_dict.keys())
+        self.action_space, self.col_list = prepare_action_dicts(df)
 
         self.state, self.key = self.init_state()
 
@@ -21,7 +49,13 @@ class Workload(gym.Env):
         #action will be itr delta, rapl delta, dvfs delta
         new_key = list(self.key)
         for idx in range(len(action)):
-            new_key[idx] += action[idx]
+            
+            col = self.col_list[idx]
+
+            new_key[idx] = self.action_space[col][self.key[idx]][action[idx]]
+            if debug:
+                print(f'{col} {self.key[idx]} action={action[idx]} {new_key[idx]}')
+        
         new_key = tuple(new_key)
 
         if debug:
