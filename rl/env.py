@@ -4,27 +4,35 @@ from gym import spaces
 import numpy as np
 
 class Workload(gym.Env):
-    def __init__(self, state_dict):
+    def __init__(self, df):
         super(Workload, self).__init__()
 
-        self.state_dict = state_dict 
+        state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
+
+        self.state_dict = state_dict #maps (itr, dvfs, rapl, [qps, workload]) -> state
+        self.key_list = list(self.state_dict.keys())
 
         self.state, self.key = self.init_state()
 
         self.time_limit_sec = 30
         self.current_time_sec = 0
 
-    def step(self, action):
+    def step(self, action, debug=False):
         #action will be itr delta, rapl delta, dvfs delta
-        itr_delta, dvfs_delta, rapl_delta = action
+        new_key = list(self.key)
+        for idx in range(len(action)):
+            new_key[idx] += action[idx]
+        new_key = tuple(new_key)
 
-        new_key = (self.key[0] + itr_delta, self.key[1] + dvfs_delta, self.key[2] + rapl_delta)
+        if debug:
+            print(self.key)
+            print(new_key)
 
-        if new_key not in self.state:
-            raise NotImplementedError()
+        if new_key not in self.key_list:
+            raise NotImplementedError() #open question: terminate the experiment
 
         #compute reward from previous state
-        reward = self.state['joules_per_interrupt']
+        reward = self.state['joules_per_interrupt'] #TODO: multiply latency here
 
         #update state
         self.key = new_key
@@ -49,7 +57,7 @@ class Workload(gym.Env):
     def init_state(self):
         idx = np.random.randint(len(self.state_dict))
 
-        key = list(self.state_dict).keys()[idx]
+        key = self.key_list[idx]
 
         state = self.state_dict[key]
 

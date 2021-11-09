@@ -56,7 +56,7 @@ def combine_data(loc):
     #HARDCODED: Fix
     df_list = []
 
-    for f in glob.glob(f'{loc}/*.csv'):
+    for f in glob.glob(f'{loc}/linux*.csv'):
         df = pd.read_csv(f)
         df_list.append(df)
 
@@ -74,9 +74,11 @@ def combine_data(loc):
 
     #sys, workload, qps, 
     df['sys'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[0])
-    df['itr'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[2])
-    df['dvfs'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[3])
-    df['rapl'] = df['fname'].apply(lambda x: x.split('/')[-1].split('.')[-1].split('_')[4])
+    df['itr'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[2]))
+    df['dvfs'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[3], base=16))
+    df['rapl'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[4]))
+    df['core'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[1]))
+    df['exp'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[0]))
 
     #remove default policy entries
     df = df[(df['dvfs']!='0xffff') | (df['itr']!=1)].copy()

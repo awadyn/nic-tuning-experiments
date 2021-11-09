@@ -14,7 +14,7 @@ def prepare_data(loc, save_loc=None):
     for col in ['itr', 'rapl']:
         df[col] = df[col].astype(int)
 
-    df['dvfs'] = df['dvfs'].apply(lambda x: int(x, base=16))
+    df['dvfs'] = df['dvfs'].apply(lambda x: int(x, base=16) if type(x) is str else x) #need to improve
 
     df = df.sort_values(by=['itr', 'dvfs', 'rapl'])
 
@@ -59,6 +59,7 @@ def normalize(df, cols, pcts, save_loc=None):
     df_static.drop('rapl', axis=1, inplace=True)
 
     df_plot = pd.concat([df_norm, df_static], axis=1)
+    assert(df_plot.shape[0]==df_norm.shape[0]==df_static.shape[0])
     
     if save_loc:
         df_plot.to_csv(f'{save_loc}/features_norm.csv', index=True)
