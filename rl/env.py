@@ -99,19 +99,18 @@ class Workload(gym.Env):
 
         return state, key
 
-    def episode_trial(self, N=10):
+    def episode_trial(self):
         self.reset()
 
         history = [self.key]
-        for _ in range(N):
+        done = False
+        while not done:
             action = (np.random.randint(3)-1, np.random.randint(3)-1, 0)
             print('---------')
             print(action)
             _,_,done,_ = self.step(action, debug=True)
             history.append(self.key)
-            if done:
-                break
-
+ 
         return history
 
 '''
