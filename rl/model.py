@@ -1,65 +1,61 @@
- class PolicyGradient:
-    def __init__(self, data, N_inputs, N_nodes, N_layers, activation, output_activation, df):
-        self.data = data
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
-        self.policy = PolicyNet(N_inputs, N_nodes, N_layers, activation, output_activation, df)
+import numpy as np
 
-        '''
-        Options:
-        Summarizes data (features) -> Action (ITR)
+class PolicyNet(nn.Module):
+    def __init__(self, 
+                 N_inputs, 
+                 N_outputs,
+                 N_hidden_layers, 
+                 N_hidden_nodes, 
+                 activation):
 
-        Raw log files (RNN) -> Action (ITR)
-
-        Features/Log files look up and Architecture
-        '''
-
-    def training_loop(self,
-                      N_iter, 
-                      batch_size, 
-                      env,
-                      policy=None, 
-                      lr=1e-2,
-                      critic_lr=1e-1, 
-                      causal=False,
-                      baseline=False,
-                      critic=None,
-                      critic_update='MC',
-                      debug=False):
+        super(PolicyNet, self).__init__()
         
-        if policy is None:
-            policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, nn.ReLU(), nn.Sigmoid())
+        self.N_inputs = N_inputs
+        self.N_outputs = N_outputs
+        assert(N_outputs % 3 == 0)
+
+        self.N_hidden_layers = N_hidden_layers
+        self.N_hidden_nodes = N_hidden_nodes
+
+        self.layer_list = nn.ModuleList([]) #use just as a python list
+        for n in range(N_hidden_layers):
+            if n==0:
+                self.layer_list.append(nn.Linear(N_inputs, N_hidden_nodes))
+            else:
+                self.layer_list.append(nn.Linear(N_hidden_nodes, N_hidden_nodes))
         
-        reward_curve = {}
+        self.output_layer = nn.Linear(N_hidden_nodes, N_outputs)
 
-        optimizer_policy = optim.Adam(policy.parameters(), lr=lr)
-        if critic:
-            optimizer_critic = optim.Adam(critic.parameters(), lr=critic_lr)
+        self.activation = activation
+        self.out_activation = nn.Softmax(dim=1)
 
-        exp_reward_list = []
-
-        for i in range(N_iter):
-            #step 1: generate batch_size trajectories
-            J_policy, mean_reward, J_critic = create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
-            #print(f'Critic Loss = {J_critic}')
+    def forward(self, inp):
+        out = inp
+        for layer in self.layer_list:
+            out = layer(out)
+            out = self.activation(out)
             
-            #step 2: define J and update policy
-            optimizer_policy.zero_grad()
-            (-J_policy).backward()
-            optimizer_policy.step()
+        out = self.output_layer(out)
 
-            #step 3: 
-            if critic:
-                if J_critic.item() > 0.1:
-                    optimizer_critic.zero_grad()
-                    J_critic.backward()
-                    optimizer_critic.step()        
+        chunk_list = []
+        for idx in np.arange(int(self.N_outputs/3)):
+            p = self.out_activation(out[:, (3*idx):(3*idx+3)])
+            chunk_list.append(p)
+        pred = torch.cat(chunk_list, dim=1)
 
-            if i % 10 == 0:
-                print(f"Iteration {i} : Mean Reward = {mean_reward}")
-                reward_curve[i] = mean_reward
+        return pred
 
-        return reward_curve
-   
+
+class PolicyGradient:
+    def __init__(self, env, N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation):
+        self.policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation)
+
+        self.env = env
+
     def create_trajectories(self,
                             env, 
                             policy, 
@@ -67,15 +63,18 @@
                             causal=False, 
                             baseline=False, 
                             critic=False, 
-                            critic_update='MC'):
+                            critic_update='MC',
+                            debug=False):
 
         action_probs_all_list = []
         rewards_all_list = []
         states_all_list = []
 
+        action_space = [-1, 0, 1]
+
         for _ in range(N): #run env N times
-            state = env.reset()
-            
+            state = np.array(list((env.reset()).values()))
+
             action_prob_list, reward_list, state_list = torch.tensor([]), torch.tensor([]), torch.tensor([])
             done = False 
 
@@ -84,18 +83,40 @@
 
                 action_probs = policy(torch.from_numpy(state).unsqueeze(0).float()).squeeze(0)
 
-                action_selected_index = torch.multinomial(action_probs, 1)
-                action_selected_prob = action_probs[action_selected_index]
-                action_selected = action_space[action_selected_index]
+                print(action_probs.shape)
 
-                state, reward, done, info = env.step(action_selected.item())
+                action_selected_list = []
+                action_selected_probs_list = []
+                for idx in np.arange(int(action_probs.shape[0]/3)):
+                    action_selected_index = torch.multinomial(action_probs[(3*idx):(3*idx+3)], 1)
+                    action_selected_prob = action_probs[(3*idx):(3*idx+3)][action_selected_index]
+                    action_selected = action_space[action_selected_index]
 
-                action_prob_list = torch.cat((action_prob_list, action_selected_prob))
+                    action_selected_list.append(action_selected)
+                    action_selected_probs_list.append(action_selected_prob)
+
+                    if debug:
+                        print('----------------')
+                        print('action_probs: ', action_probs)
+                        print('action_selected_index: ', action_selected_index)
+                        print('action_selected_prob: ', action_selected_prob)
+                        print('action_selected: ', action_selected)
+
+                action_selected_prob = torch.prod(torch.cat(action_selected_probs_list))
+                action_selected = action_selected_list
+
+                state, reward, done, info = env.step(action_selected)
+                state = np.array(list(state.values()))
+
+                action_prob_list = torch.cat((action_prob_list, action_selected_prob.unsqueeze(0)))
                 reward_list = torch.cat((reward_list, torch.tensor([reward])))
+
 
             action_probs_all_list.append(action_prob_list)
             rewards_all_list.append(reward_list)
             states_all_list.append(state_list)
+
+        return action_probs_all_list, rewards_all_list, states_all_list
 
         #non-optimized code (negative strides not supported by torch yet)
         rewards_to_go_list = [torch.tensor(np.cumsum(traj_rewards.numpy()[::-1])[::-1].copy())
@@ -197,6 +218,55 @@
             J_critic = critic_loss(preds, critic_targets)
 
         return J, R, J_critic    
+
+
+
+    def training_loop(self,
+                      N_iter, 
+                      batch_size, 
+                      env,
+                      policy=None, 
+                      lr=1e-2,
+                      critic_lr=1e-1, 
+                      causal=False,
+                      baseline=False,
+                      critic=None,
+                      critic_update='MC',
+                      debug=False):
+        
+        if policy is None:
+            policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, nn.ReLU(), nn.Sigmoid())
+        
+        reward_curve = {}
+
+        optimizer_policy = optim.Adam(policy.parameters(), lr=lr)
+        if critic:
+            optimizer_critic = optim.Adam(critic.parameters(), lr=critic_lr)
+
+        exp_reward_list = []
+
+        for i in range(N_iter):
+            #step 1: generate batch_size trajectories
+            J_policy, mean_reward, J_critic = create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
+            
+            #step 2: define J and update policy
+            optimizer_policy.zero_grad()
+            J_policy.backward() #note: we are minimizing cost instead of maximizing reward
+            optimizer_policy.step()
+
+            #step 3: 
+            if critic:
+                if J_critic.item() > 0.1:
+                    optimizer_critic.zero_grad()
+                    J_critic.backward()
+                    optimizer_critic.step()        
+
+            if i % 10 == 0:
+                print(f"Iteration {i} : Mean Reward = {mean_reward}")
+                reward_curve[i] = mean_reward
+
+        return reward_curve
+   
 
 
     def train(self, N_batch_size, T=10):

@@ -29,9 +29,9 @@ def prepare_action_dicts(df):
     return d, col_list
 
 
-class Workload(gym.Env):
+class WorkloadEnv(gym.Env):
     def __init__(self, df):
-        super(Workload, self).__init__()
+        super(WorkloadEnv, self).__init__()
 
         #basic data structures
         state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
@@ -42,6 +42,7 @@ class Workload(gym.Env):
 
         self.state, self.key = self.init_state()
 
+        #limit should be in n_requests
         self.time_limit_sec = 30
         self.current_time_sec = 0
 
@@ -66,8 +67,9 @@ class Workload(gym.Env):
         done = False
         info = {}
         
-        reward = self.state['joules_per_interrupt'] #TODO: multiply latency here
-        self.current_time_sec += self.state['time_per_interrupt']
+        #SANITY CHECK: get to lowest dvfs
+        reward = 1 * self.state['joules_per_interrupt'] / self.state['time_per_interrupt'] #* self.state['read_99th'] #TODO: multiply latency here
+        self.current_time_sec += 1 #self.state['time_per_interrupt'] #replace this by small snapshots from features
         if self.current_time_sec >= self.time_limit_sec:
             done = True
 
@@ -86,6 +88,8 @@ class Workload(gym.Env):
         self.state, self.key = self.init_state()
 
         self.current_time_sec = 0
+
+        return self.state
 
     def render(self):
         pass
