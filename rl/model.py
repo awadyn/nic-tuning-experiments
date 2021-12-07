@@ -83,8 +83,6 @@ class PolicyGradient:
 
                 action_probs = policy(torch.from_numpy(state).unsqueeze(0).float()).squeeze(0)
 
-                print(action_probs.shape)
-
                 action_selected_list = []
                 action_selected_probs_list = []
                 for idx in np.arange(int(action_probs.shape[0]/3)):
@@ -97,6 +95,7 @@ class PolicyGradient:
 
                     if debug:
                         print('----------------')
+                        print('action_probs.shape: ', action_probs.shape)
                         print('action_probs: ', action_probs)
                         print('action_selected_index: ', action_selected_index)
                         print('action_selected_prob: ', action_selected_prob)
@@ -116,12 +115,9 @@ class PolicyGradient:
             rewards_all_list.append(reward_list)
             states_all_list.append(state_list)
 
-        return action_probs_all_list, rewards_all_list, states_all_list
-
         #non-optimized code (negative strides not supported by torch yet)
         rewards_to_go_list = [torch.tensor(np.cumsum(traj_rewards.numpy()[::-1])[::-1].copy())
                               for traj_rewards in rewards_all_list]
-
 
         #compute objective
         J = 0

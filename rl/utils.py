@@ -88,6 +88,44 @@ def combine_data(loc):
 
     return df
 
+def normalize(df):
+    col_tags = ['instructions', 
+                'cycles', 
+                'ref_cycles', 
+                'llc_miss', 
+                'c1', 
+                'c1e', 
+                'c3', 
+                'c6',
+                'c7', 
+                'joules',
+                'rx_desc',
+                'rx_bytes',
+                'tx_desc',
+                'tx_bytes']
+
+    keep_tags = [c for c in df.columns if '_'.join(c.split('_')[:-1]) not in col_tags]
+    process_tags = [c for c in df.columns if '_'.join(c.split('_')[:-1]) in col_tags]
+
+    df_keep = df[keep_tags].copy()
+    df_process = df[process_tags].copy()
+
+    df_list = []
+    for col in col_tags:
+        if col=='c6':
+            continue
+        cols = [c for c in df.columns if '_'.join(c.split('_')[:-1])==col]
+        max_val = df_process[cols].max().max()
+        print(cols)
+        print(max_val)
+
+        df_list.append(df_process[cols] / max_val)
+
+    df_process = pd.concat(df_list, axis=1)
+    df = pd.concat([df_keep, df_process], axis=1)
+
+    return df
+
 def missing_rdtsc_out_files(loc, debug=False):
     
     def check_rdtsc_out_file(fname, debug=False):
