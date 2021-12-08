@@ -104,12 +104,16 @@ class PolicyGradient:
                 action_selected_prob = torch.prod(torch.cat(action_selected_probs_list))
                 action_selected = action_selected_list
 
-                state, reward, done, info = env.step(action_selected)
+                state, reward, done, info = env.step(action_selected, debug=debug)
                 state = np.array(list(state.values()))
 
                 action_prob_list = torch.cat((action_prob_list, action_selected_prob.unsqueeze(0)))
                 reward_list = torch.cat((reward_list, torch.tensor([reward])))
 
+            if debug:
+                print('action_prob_list: ', action_prob_list)
+                print('reward_list: ', reward_list)
+                print('state_list: ', state_list)
 
             action_probs_all_list.append(action_prob_list)
             rewards_all_list.append(reward_list)
@@ -229,10 +233,7 @@ class PolicyGradient:
                       critic=None,
                       critic_update='MC',
                       debug=False):
-        
-        if policy is None:
-            policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, nn.ReLU(), nn.Sigmoid())
-        
+                
         reward_curve = {}
 
         optimizer_policy = optim.Adam(policy.parameters(), lr=lr)
@@ -243,7 +244,7 @@ class PolicyGradient:
 
         for i in range(N_iter):
             #step 1: generate batch_size trajectories
-            J_policy, mean_reward, J_critic = create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
+            J_policy, mean_reward, J_critic = self.create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
             
             #step 2: define J and update policy
             optimizer_policy.zero_grad()
@@ -262,20 +263,6 @@ class PolicyGradient:
                 reward_curve[i] = mean_reward
 
         return reward_curve
-   
-
-
-    def train(self, N_batch_size, T=10):
-        for exp in range(N_batch_size):
-
-            for t in range(T):
-                pass
-                #step 1: construct inputs
-                #step 2: predict action probs
-                #step 3: sample from multinomial distribution (everything discrete here)
-                #step 4: measure instantaneous reward
-
-            #step 5:
 
     def get_learning_curves(self,
                             N_exp, 

@@ -1,15 +1,29 @@
-import model
-import env
-import viz
+from model import *
+from env import *
+import utils
+
+import pandas as pd
+import matplotlib.pylab as plt
+plt.ion()
+
+'''
+Bug in model.PolicyGradient
+
+env dynamics isn't correct
+
+reward needs shaping - penalty for early termination
+'''
 
 if __name__=='__main__':
 
-    state_dict = read_all_csvs(loc)
+    #df = utils.combine_data('features') #unnormalized CSV file
+    #df = pd.read_csv('features.csv')
 
-    nic_env = env.Workload(state_dict)
+    df2 = utils.normalize(df)
 
-    pg = PolicyGradient(data, N_inputs, N_nodes, N_layers, activation, output_activation, df)
+    env = WorkloadEnv(df2)
 
-    pg.training_loop()
+    pg = PolicyGradient(env, len(env.state), 6, 1, 10, nn.ReLU())
 
-    viz.plot(pg)
+    _ = pg.create_trajectories(env, pg.policy, 10, debug=True)
+    rcurve = pg.training_loop(1000, 8, env, pg.policy, causal=True, lr=1e-3)
