@@ -12,6 +12,12 @@ Bug in model.PolicyGradient
 env dynamics isn't correct
 
 reward needs shaping - penalty for early termination
+
+     - visualization
+     - remove dvfs = 65535
+     - reward?
+     - remove joules_per_interrupt, time_per_interrupt, read_lat
+     - interpretation/explainability
 '''
 
 if __name__=='__main__':
