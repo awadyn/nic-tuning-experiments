@@ -27,3 +27,7 @@ if __name__=='__main__':
 
     _ = pg.create_trajectories(env, pg.policy, 10, debug=True)
     rcurve = pg.training_loop(1000, 8, env, pg.policy, causal=True, lr=1e-3)
+    #1000 = number of updates to policy
+    #8 = number of trajectories generated for each update
+    #policy is part of pg class
+    #causal should generally be True
