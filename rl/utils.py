@@ -81,7 +81,7 @@ def combine_data(loc):
     df['exp'] = df['fname'].apply(lambda x: int(x.split('/')[-1].split('.')[-1].split('_')[0]))
 
     #remove default policy entries
-    df = df[(df['dvfs']!='0xffff') | (df['itr']!=1)].copy()
+    df = df[(df['dvfs']!='0xffff') & (df['itr']!=1)].copy()
 
     if 'index' in df:
         df.drop('index', axis=1, inplace=True)
