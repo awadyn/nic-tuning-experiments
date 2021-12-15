@@ -2,6 +2,16 @@ import gym
 from gym import spaces
 
 import numpy as np
+import config
+
+REWARD_PENALTY = config.REWARD_PENALTY
+
+'''
+reward -> add latency requirement
+remove read_lat from features
+toggle between two actions and three actions
+reward penalty toggle
+'''
 
 def prepare_action_dicts(df):
 
@@ -34,9 +44,29 @@ class WorkloadEnv(gym.Env):
         super(WorkloadEnv, self).__init__()
 
         #basic data structures
-        state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
+        #state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
+
+        misc_cols = ['joules_per_interrupt',
+                    'time_per_interrupt',
+                    'read_avg',
+                    'read_std',
+                    'read_min',
+                    'read_5th',
+                    'read_10th',
+                    'read_50th',
+                    'read_90th',
+                    'read_95th',
+                    'read_99th']
+
+        df_state = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).drop(misc_cols, axis=1)
+        df_misc = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp'])[misc_cols]
+
+        state_dict = df_state.T.to_dict()
+        reward_dict = df_misc.T.to_dict()
 
         self.state_dict = state_dict #maps (itr, dvfs, rapl, [qps, workload]) -> state
+        self.reward_dict = reward_dict
+        
         self.key_list = list(self.state_dict.keys())
         self.action_space, self.col_list = prepare_action_dicts(df)
 
@@ -74,7 +104,11 @@ class WorkloadEnv(gym.Env):
             done = True
 
         if new_key not in self.key_list:
-            done = True
+            #done = True
+            #stay at current state, impose penalty on reward
+            new_key = self.key
+            reward *= REWARD_PENALTY
+
             #raise NotImplementedError() #open question: terminate the experiment
 
         #update state
