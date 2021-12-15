@@ -1,12 +1,26 @@
 import matplotlib.pylab as plt
 import numpy as np
 import pandas as pd
+import torch
 import utils
 
 #start time, end time filtering
 #add entropy of normalized entropy
 #percentiles, bin counts
 
+plt.ion()
+
+def plot_policy(policy, env, itr_list, dvfs_list):
+    pred_dict = {}
+    for itr in itr_list:
+        for dvfs in dvfs_list:
+            pred = policy(torch.tensor(list(env.state_dict[(itr, dvfs, 135, 'linux', 0, 0)].values())).unsqueeze(0)).detach().numpy()
+
+            pred_dict[(itr, dvfs)] = pred
+
+    return pred_dict
+
+'''
 def prepare_data(loc, save_loc=None):
     df = utils.combine_data(loc)
     df.set_index(['fname', 'sys'], inplace=True)
@@ -71,3 +85,4 @@ def plot_df(df, row_start, row_end):
 
     plt.imshow(df.iloc[row_start:row_end+1])
 
+'''

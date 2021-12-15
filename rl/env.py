@@ -66,11 +66,11 @@ class WorkloadEnv(gym.Env):
 
         self.state_dict = state_dict #maps (itr, dvfs, rapl, [qps, workload]) -> state
         self.reward_dict = reward_dict
-        
+
         self.key_list = list(self.state_dict.keys())
         self.action_space, self.col_list = prepare_action_dicts(df)
 
-        self.state, self.key = self.init_state()
+        self.state, self.reward, self.key = self.init_state()
 
         #limit should be in n_requests
         self.time_limit_sec = 30
@@ -98,8 +98,10 @@ class WorkloadEnv(gym.Env):
         info = {}
         
         #SANITY CHECK: get to lowest dvfs
-        reward = 1 * self.state['joules_per_interrupt'] / self.state['time_per_interrupt'] #* self.state['read_99th'] #TODO: multiply latency here
+        current_reward = 1 * (self.reward['joules_per_interrupt'] / self.reward['time_per_interrupt']) #* self.state['read_99th'] #TODO: multiply latency here
+
         self.current_time_sec += 1 #self.state['time_per_interrupt'] #replace this by small snapshots from features
+
         if self.current_time_sec >= self.time_limit_sec:
             done = True
 
@@ -107,7 +109,7 @@ class WorkloadEnv(gym.Env):
             #done = True
             #stay at current state, impose penalty on reward
             new_key = self.key
-            reward *= REWARD_PENALTY
+            current_reward *= REWARD_PENALTY
 
             #raise NotImplementedError() #open question: terminate the experiment
 
@@ -115,11 +117,12 @@ class WorkloadEnv(gym.Env):
         if not done:
             self.key = new_key
             self.state = self.state_dict[self.key]
+            self.reward = self.reward_dict[self.key]
 
-        return self.state, reward, done, info
+        return self.state, current_reward, done, info
 
     def reset(self):
-        self.state, self.key = self.init_state()
+        self.state, self.reward, self.key = self.init_state()
 
         self.current_time_sec = 0
 
@@ -130,12 +133,15 @@ class WorkloadEnv(gym.Env):
 
     def init_state(self):
         idx = np.random.randint(len(self.state_dict))
+        idx = 4
 
         key = self.key_list[idx]
 
         state = self.state_dict[key]
 
-        return state, key
+        reward = self.reward_dict[key]
+
+        return state, reward, key
 
     def episode_trial(self):
         self.reset()
