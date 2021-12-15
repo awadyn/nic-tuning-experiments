@@ -1,6 +1,7 @@
 from model import *
 from env import *
 import utils
+import config
 
 import pandas as pd
 import matplotlib.pylab as plt
@@ -28,11 +29,16 @@ if __name__=='__main__':
     df2 = utils.normalize(df)
 
     env = WorkloadEnv(df2)
+    
+    pg = PolicyGradient(env, len(env.state), 2*config.N_outputs_per_knob, 1, 128, nn.ReLU()) #128 -> number of hidden nodes, 1 -> number of hidden layers
 
-    pg = PolicyGradient(env, len(env.state), 6, 1, 10, nn.ReLU())
+    _ = pg.create_trajectories(env, pg.policy, 10, debug=True) #test trajectories - don't need to run explicitly
+    rcurve = pg.training_loop(1000, 32, env, pg.policy, causal=True, lr=1e-3)
+    rcurve = pg.training_loop(1000, 32, env, pg.policy, causal=True, lr=1e-3) #updates same model for another 1000 iterations
 
-    _ = pg.create_trajectories(env, pg.policy, 10, debug=True)
-    rcurve = pg.training_loop(1000, 8, env, pg.policy, causal=True, lr=1e-3)
+    #torch.save(pg.policy, open('mymodel.pt', 'wb))
+    #torch.load(open('mymodel.pt', 'rb'))
+    
     #1000 = number of updates to policy
     #8 = number of trajectories generated for each update
     #policy is part of pg class
