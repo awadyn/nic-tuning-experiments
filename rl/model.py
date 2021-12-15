@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 
 import numpy as np
+import config
+
+N_outputs_per_knob = config.N_outputs_per_knob
 
 class PolicyNet(nn.Module):
     def __init__(self, 
@@ -16,7 +19,7 @@ class PolicyNet(nn.Module):
         
         self.N_inputs = N_inputs
         self.N_outputs = N_outputs
-        assert(N_outputs % 3 == 0)
+        assert(N_outputs % N_outputs_per_knob == 0)
 
         self.N_hidden_layers = N_hidden_layers
         self.N_hidden_nodes = N_hidden_nodes
@@ -42,8 +45,8 @@ class PolicyNet(nn.Module):
         out = self.output_layer(out)
 
         chunk_list = []
-        for idx in np.arange(int(self.N_outputs/3)):
-            p = self.out_activation(out[:, (3*idx):(3*idx+3)])
+        for idx in np.arange(int(self.N_outputs/N_outputs_per_knob)):
+            p = self.out_activation(out[:, (N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)])
             chunk_list.append(p)
         pred = torch.cat(chunk_list, dim=1)
 
@@ -52,9 +55,19 @@ class PolicyNet(nn.Module):
 
 class PolicyGradient:
     def __init__(self, env, N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation):
+        self.N_inputs = N_inputs
+        self.N_outputs = N_outputs
+
         self.policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation)
 
         self.env = env
+
+        if N_outputs_per_knob==2:
+            self.action_space = [-1, 1]
+        elif N_outputs_per_knob==3:
+            self.action_space = [-1, 0, 1]
+        else:
+            raise ValueError(f'Please ensure correct action space if N_outputs_per_knob=={N_outputs_per_knob}')
 
     def create_trajectories(self,
                             env, 
@@ -70,7 +83,7 @@ class PolicyGradient:
         rewards_all_list = []
         states_all_list = []
 
-        action_space = [-1, 0, 1]
+        print(f'action_space: {self.action_space}')
 
         for _ in range(N): #run env N times
             state = np.array(list((env.reset()).values()))
@@ -83,12 +96,15 @@ class PolicyGradient:
 
                 action_probs = policy(torch.from_numpy(state).unsqueeze(0).float()).squeeze(0)
 
+                norm = action_probs.reshape(-1, N_outputs_per_knob).sum(dim=1)
+                #print(f'norm = {norm}')
+
                 action_selected_list = []
                 action_selected_probs_list = []
-                for idx in np.arange(int(action_probs.shape[0]/3)):
-                    action_selected_index = torch.multinomial(action_probs[(3*idx):(3*idx+3)], 1)
-                    action_selected_prob = action_probs[(3*idx):(3*idx+3)][action_selected_index]
-                    action_selected = action_space[action_selected_index]
+                for idx in np.arange(int(action_probs.shape[0]/N_outputs_per_knob)):
+                    action_selected_index = torch.multinomial(action_probs[(N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)], 1)
+                    action_selected_prob = action_probs[(N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)][action_selected_index]
+                    action_selected = self.action_space[action_selected_index]
 
                     action_selected_list.append(action_selected)
                     action_selected_probs_list.append(action_selected_prob)
@@ -244,7 +260,7 @@ class PolicyGradient:
 
         for i in range(N_iter):
             #step 1: generate batch_size trajectories
-            J_policy, mean_reward, J_critic = self.create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
+            J_policy, mean_reward, J_critic = self.create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update, debug=debug)
             
             #step 2: define J and update policy
             optimizer_policy.zero_grad()
