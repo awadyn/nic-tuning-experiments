@@ -18,7 +18,7 @@ def plot_policy(policy, env, itr_list, dvfs_list):
 
     for itr in itr_list:
         for dvfs in dvfs_list:
-            plt.plot([itr], [dvfs], marker="o", c='b', markersize=1)
+            plt.plot([itr], [dvfs], marker="o", c='b', markersize=2)
 
     for itr in itr_list:
         for dvfs in dvfs_list:
