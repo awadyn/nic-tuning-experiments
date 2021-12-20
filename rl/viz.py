@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 import utils
+import config
 
 #start time, end time filtering
 #add entropy of normalized entropy
@@ -12,11 +13,44 @@ plt.ion()
 
 def plot_policy(policy, env, itr_list, dvfs_list):
     pred_dict = {}
+    plt.figure()
+    N_outputs_per_knob = config.N_outputs_per_knob
+
+    for itr in itr_list:
+        for dvfs in dvfs_list:
+            plt.plot([itr], [dvfs], marker="o", c='b', markersize=1)
+
     for itr in itr_list:
         for dvfs in dvfs_list:
             pred = policy(torch.tensor(list(env.state_dict[(itr, dvfs, 135, 'linux', 0, 0)].values())).unsqueeze(0)).detach().numpy()
 
             pred_dict[(itr, dvfs)] = pred
+
+            #plt.plot([itr], [dvfs], marker="o", c='b', markersize=1)
+
+            target_point = []
+            for idx in np.arange(int(pred.shape[1]/N_outputs_per_knob)):
+                target = pred[0, (N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)].argmax()
+                
+                if N_outputs_per_knob==2:
+                    target = {0: -1, 1:1}[target]
+                elif N_outputs_per_knob==3:
+                    target = {0: -1, 1:0, 2:1}[target]
+
+                colname = env.col_list[idx]
+                if colname=='itr':
+                    target = env.action_space[env.col_list[idx]][itr][target]
+                elif colname=='dvfs':
+                    target = env.action_space[env.col_list[idx]][dvfs][target]
+
+                target_point.append(target)
+
+            plt.arrow(itr, dvfs, target_point[0]-itr, target_point[1]-dvfs, width=0.001, head_width=10, head_length=100, alpha=0.5, length_includes_head=True)
+
+            print(itr, dvfs, target_point)
+
+    plt.xlabel('itr')
+    plt.ylabel('dvfs')
 
     return pred_dict
 
