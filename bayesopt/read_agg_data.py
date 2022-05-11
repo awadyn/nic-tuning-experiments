@@ -37,25 +37,18 @@ def start_analysis(workload, drop_outliers=False, **kwargs):
 def start_netpipe_analysis(drop_outliers=False):
     N_ROUNDS = 5000
 
-    df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_tuned.csv')) #truncated logs for 512k fixed
-    df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_governor.csv'))
+    #df_fixed = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_tuned.csv')) #truncated logs for 512k fixed
+    #df_gov = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'oct29_netpipe_governor.csv'))
 
-    df_fixed = rename_cols(df_fixed)
-    df_gov = rename_cols(df_gov)
+    #df_fixed = rename_cols(df_fixed)
+    #df_gov = rename_cols(df_gov)
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'netpipe_combined.csv'), sep = ' ') #truncated logs for 512k fixed
+    df = rename_cols(df)
+    #df = convert_units(df)
 
-    #outlier_list = identify_outliers(df, dfr)
-    #df_fixed = filter_outliers(df_fixed)
-
-    df_fixed['gov'] = 0
-    df_gov['gov'] = 1
-
-    df_fixed = convert_units(df_fixed)
-    df_gov = convert_units(df_gov)
-
-    df = pd.concat([df_fixed, df_gov], axis=0)
     df['tput'] = df['msg']*N_ROUNDS / df['time']
-
     df['eput'] = df['msg']*N_ROUNDS / df['joules']
+    df['edp'] = 0.5*df['time']*df['joules']
 
     df_comb = prepare_scan_all_data(df)
     df_comb.reset_index(inplace=True)
@@ -73,7 +66,8 @@ def start_netpipe_analysis(drop_outliers=False):
     return df_comb, df, outlier_list
 
 def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
-    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'node_10_29_2020.csv'), sep=' ')
+    #df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'node_10_29_2020.csv'), sep=' ')
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'node_combined.csv'), sep=' ')
 
     df.drop(['START_RDTSC', 'END_RDTSC'], axis=1, inplace=True)
 
@@ -129,25 +123,8 @@ def start_nodejs_analysis(drop_outliers=False, scale_requests=True):
 
 def start_mcd_analysis(drop_outliers=False, scale_requests=True):
     '''TODO: Merge with start_nodejs_analysis'''
-    df_linux = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'mcd_combined.csv'), sep=' ')
-    #df_ebbrt = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'ebbrt_mcd.csv'), sep=' ')
-    #df = pd.concat([df_linux, df_ebbrt], axis=0)
-    df = df_linux
+    df = pd.read_csv(os.path.join(Locations.aggregate_files_loc, 'mcd_combined.csv'), sep=' ')
 
-    df = rename_cols(df)
-
-    #fix QPS
-    possible_qps_vals = np.array([200000, 400000, 600000])
-    print(f"Possible QPS values : {possible_qps_vals}")
-    def cluster_qps_values(df):
-        df['QPS_uncorrected'] = df['QPS']
-        
-        df['QPS'] = df['QPS'].apply(lambda x: possible_qps_vals[np.argmin(np.abs((x - possible_qps_vals)))])
-
-        return df
-
-    #df = cluster_qps_values(df)
-    df['QPS'] = df['target_QPS']
 
     #drop time < 30s
     print('Dropping rows with time <= 29')
@@ -163,17 +140,24 @@ def start_mcd_analysis(drop_outliers=False, scale_requests=True):
 
     def scale_to_requests(d):
         print("Scaling to 5 million requests")
-        COLS_TO_SCALE = ['time',
+        COLS_TO_SCALE = ['rx_desc',
+                         'rx_bytes',
+                         'tx_desc',
+                         'tx_bytes',
+                         'time',
                          'joules',
                          'instructions',
                          'cycles',
-                         'refcyc',
+                         'ref_cycles',
                          'llc_miss',
+                         'c1',
+                         'c1e',
                          'c3',
                          'c6',
-                         #'c7']
+                         'c7',
+                         'num_interrupts'
+                         ]
 
-        #SCALE_FACTOR = 5000000. / (d['QPS_uncorrected']*d['time'])
         SCALE_FACTOR = 5000000. / (d['measure_QPS']*d['time'])
 
         for c in COLS_TO_SCALE:
@@ -187,9 +171,7 @@ def start_mcd_analysis(drop_outliers=False, scale_requests=True):
 
 
     df['edp'] = 0.5 * (df['joules'] * df['time'])
-    df['eput'] = df['QPS'] * df['time'] / df['joules']
-    #df['tput'] = df['requests'] / df['time']
-    #df['eput'] = df['requests'] / df['joules']
+    #df['eput'] = df['QPS'] * df['time'] / df['joules']
 
     dfr = df.copy() #raw data
     df = prepare_scan_all_data(dfr) #grouped by data
