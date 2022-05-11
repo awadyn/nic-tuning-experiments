@@ -41,11 +41,12 @@ def rename_cols(df):
 
 def convert_units(df):
     df['joules'] = df['joules'] * JOULE_CONVERSION
-    df['edp'] = df['edp'] * JOULE_CONVERSION
-
     df['time'] = df['time'] * TIME_CONVERSION_khz
-    df['edp'] = df['edp'] * TIME_CONVERSION_khz
 
+    if 'edp' in df:
+        df['edp'] = df['edp'] * JOULE_CONVERSION
+        df['edp'] = df['edp'] * TIME_CONVERSION_khz
+    
     return df
 
 def identify_outliers(df, dfr, RATIO_THRESH=0.03):
@@ -120,8 +121,8 @@ def filter_outliers(lines, dfr):
 def prepare_scan_all_data(df):
     if 'msg' in df.columns: #netpipe
         COLS = ['sys', 'msg', 'itr', 'dvfs', 'rapl']
-    elif 'QPS' in df.columns:
-        COLS = ['sys', 'QPS', 'itr', 'dvfs', 'rapl']
+    elif 'target_QPS' in df.columns:
+        COLS = ['sys', 'target_QPS', 'itr', 'dvfs', 'rapl']
     else: #nodejs
         COLS = ['sys', 'itr', 'dvfs', 'rapl']    
 
