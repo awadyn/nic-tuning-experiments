@@ -17,11 +17,13 @@ def prepare_action_dicts(df):
 
     def get_col_dict(colname):
         l = np.sort(df[colname].unique())
-        
+        #print(l)
         l_p1 = np.roll(l, shift=-1)
+        #print(l_p1)
         l_p1[-1] = -1 #invalid choice
         
         l_m1 = np.roll(l, shift=1)
+        #print(l_m1)
         l_m1[0] = -1 #invalid
         
         d = {}
@@ -32,7 +34,8 @@ def prepare_action_dicts(df):
 
     d = {}
     col_list = []
-    for colname in ['itr', 'dvfs', 'rapl']:
+    #for colname in ['itr', 'dvfs', 'rapl']:
+    for colname in ['itr', 'dvfs']:
         col_list.append(colname)
         d[colname] = get_col_dict(colname)
 
@@ -46,31 +49,36 @@ class WorkloadEnv(gym.Env):
         #basic data structures
         #state_dict = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).T.to_dict()
 
-        misc_cols = ['joules_per_interrupt',
-                    'time_per_interrupt',
-                    'read_avg',
-                    'read_std',
-                    'read_min',
-                    'read_5th',
-                    'read_10th',
-                    'read_50th',
-                    'read_90th',
-                    'read_95th',
-                    'read_99th']
+        misc_cols = ['joules_99']
 
-        df_state = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).drop(misc_cols, axis=1)
-        df_misc = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp'])[misc_cols]
+#        df_state = df[(df['exp']==0) & (df['core']==0)].drop('fname', axis=1).set_index(['itr', 'dvfs', 'rapl', 'sys', 'core', 'exp']).drop(misc_cols, axis=1)
+
+        df_state = df.set_index(['itr', 'dvfs']).drop(misc_cols, axis=1)
+        df_misc = df.set_index(['itr', 'dvfs'])[misc_cols]
 
         state_dict = df_state.T.to_dict()
-        reward_dict = df_misc.T.to_dict()
+        print(df_state)
+        print()
+        print()
 
-        self.state_dict = state_dict #maps (itr, dvfs, rapl, [qps, workload]) -> state
+        reward_dict = df_misc.T.to_dict()
+        print(df_misc)
+        print()
+        print()
+
+
+        self.state_dict = state_dict #maps (itr, dvfs) -> state
         self.reward_dict = reward_dict
 
         self.key_list = list(self.state_dict.keys())
         self.action_space, self.col_list = prepare_action_dicts(df)
+        print(self.action_space)
+        print(self.col_list)
 
         self.state, self.reward, self.key = self.init_state()
+        print(self.state)
+        print(self.reward)
+        print(self.key)
 
         #limit should be in n_requests
         self.time_limit_sec = 30
@@ -79,7 +87,7 @@ class WorkloadEnv(gym.Env):
     def step(self, action, debug=False):
         #action will be itr delta, rapl delta, dvfs delta
         new_key = list(self.key)
-        for idx in range(len(action)):
+        for idx in range(len(action)-1):
             
             col = self.col_list[idx]
 
@@ -132,7 +140,7 @@ class WorkloadEnv(gym.Env):
         pass
 
     def init_state(self):
-        idx = np.random.randint(len(self.state_dict))
+        #idx = np.random.randint(len(self.state_dict))
         idx = 4
 
         key = self.key_list[idx]
@@ -143,19 +151,19 @@ class WorkloadEnv(gym.Env):
 
         return state, reward, key
 
-    def episode_trial(self):
-        self.reset()
-
-        history = [self.key]
-        done = False
-        while not done:
-            action = (np.random.randint(3)-1, np.random.randint(3)-1, 0)
-            print('---------')
-            print(action)
-            _,_,done,_ = self.step(action, debug=True)
-            history.append(self.key)
- 
-        return history
+#    def episode_trial(self):
+#        self.reset()
+#
+#        history = [self.key]
+#        done = False
+#        while not done:
+#            action = (np.random.randint(3)-1, np.random.randint(3)-1, 0)
+#            print('---------')
+#            print(action)
+#            _,_,done,_ = self.step(action, debug=True)
+#            history.append(self.key)
+# 
+#        return history
 
 '''
 workload fixed:

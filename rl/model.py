@@ -77,7 +77,8 @@ class PolicyGradient:
                             baseline=False, 
                             critic=False, 
                             critic_update='MC',
-                            debug=False):
+                            #debug=False):
+                            debug=True):
 
         action_probs_all_list = []
         rewards_all_list = []
@@ -86,13 +87,14 @@ class PolicyGradient:
         print(f'action_space: {self.action_space}')
 
         for _ in range(N): #run env N times
-            state = np.array(list((env.reset()).values()))
+            state = np.array(list(env.reset().values()))
+            print(state)
 
-            action_prob_list, reward_list, state_list = torch.tensor([]), torch.tensor([]), torch.tensor([])
+            action_prob_list, reward_list, state_list = torch.tensor(np.array([])), torch.tensor(np.array([])), torch.tensor(np.array([]))
             done = False 
 
             while not done:
-                state_list = torch.cat((state_list, torch.tensor([state]).float())) #
+                state_list = torch.cat((state_list, torch.tensor(np.array([state])).float())) #
 
                 action_probs = policy(torch.from_numpy(state).unsqueeze(0).float()).squeeze(0)
 
@@ -248,13 +250,14 @@ class PolicyGradient:
                       baseline=False,
                       critic=None,
                       critic_update='MC',
-                      debug=False):
+                      #debug=False):
+                      debug=True):
                 
         reward_curve = {}
 
         optimizer_policy = optim.Adam(policy.parameters(), lr=lr)
-        if critic:
-            optimizer_critic = optim.Adam(critic.parameters(), lr=critic_lr)
+#        if critic:
+#            optimizer_critic = optim.Adam(critic.parameters(), lr=critic_lr)
 
         exp_reward_list = []
 
@@ -268,11 +271,11 @@ class PolicyGradient:
             optimizer_policy.step()
 
             #step 3: 
-            if critic:
-                if J_critic.item() > 0.1:
-                    optimizer_critic.zero_grad()
-                    J_critic.backward()
-                    optimizer_critic.step()        
+ #           if critic:
+ #               if J_critic.item() > 0.1:
+ #                   optimizer_critic.zero_grad()
+ #                   J_critic.backward()
+ #                   optimizer_critic.step()        
 
             if i % 10 == 0:
                 print(f"Iteration {i} : Mean Reward = {mean_reward}")
@@ -280,38 +283,38 @@ class PolicyGradient:
 
         return reward_curve
 
-    def get_learning_curves(self,
-                            N_exp, 
-                            N_iter, 
-                            batch_size, 
-                            env, 
-                            causal=False, 
-                            baseline=False):
-
-        reward_curve_list = []
-        for _ in range(N_exp):
-            policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation, output_activation)
-
-            reward_curve = training_loop(N_iter, batch_size, env, policy, causal=causal, baseline=baseline)
-
-            reward_curve_list.append(reward_curve)
-
-        #combine results
-        rcurve = {}
-        for k in reward_curve_list[0]:
-            rcurve[k] = [r[k] for r in reward_curve_list]
-            rcurve[k] = (np.mean(rcurve[k]), np.std(rcurve[k]))
-
-        return rcurve
-
-    def plot_learning_curve(self,
-                            rcurve, 
-                            label):
-
-        k = list(rcurve.keys())
-
-        plt.errorbar(k, [rcurve[key][0] for key in k], [rcurve[key][1] for key in k], label=label)
-        plt.legend()
-        plt.xlabel('Episode Number')
-        plt.ylabel('Average Score')
-        plt.title('10 runs, 200 iterations each, batch-size 20 episodes')
+#    def get_learning_curves(self,
+#                            N_exp, 
+#                            N_iter, 
+#                            batch_size, 
+#                            env, 
+#                            causal=False, 
+#                            baseline=False):
+#
+#        reward_curve_list = []
+#        for _ in range(N_exp):
+#            policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation, output_activation)
+#
+#            reward_curve = training_loop(N_iter, batch_size, env, policy, causal=causal, baseline=baseline)
+#
+#            reward_curve_list.append(reward_curve)
+#
+#        #combine results
+#        rcurve = {}
+#        for k in reward_curve_list[0]:
+#            rcurve[k] = [r[k] for r in reward_curve_list]
+#            rcurve[k] = (np.mean(rcurve[k]), np.std(rcurve[k]))
+#
+#        return rcurve
+#
+#    def plot_learning_curve(self,
+#                            rcurve, 
+#                            label):
+#
+#        k = list(rcurve.keys())
+#
+#        plt.errorbar(k, [rcurve[key][0] for key in k], [rcurve[key][1] for key in k], label=label)
+#        plt.legend()
+#        plt.xlabel('Episode Number')
+#        plt.ylabel('Average Score')
+#        plt.title('10 runs, 200 iterations each, batch-size 20 episodes')
