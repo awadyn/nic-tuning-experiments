@@ -4,8 +4,14 @@ import torch.optim as optim
 
 import numpy as np
 import config
+from config import debug
+
+from colorama import Fore, Back, Style
 
 N_outputs_per_knob = config.N_outputs_per_knob
+
+
+
 
 class PolicyNet(nn.Module):
     def __init__(self, 
@@ -20,21 +26,25 @@ class PolicyNet(nn.Module):
         self.N_inputs = N_inputs
         self.N_outputs = N_outputs
         assert(N_outputs % N_outputs_per_knob == 0)
-
         self.N_hidden_layers = N_hidden_layers
         self.N_hidden_nodes = N_hidden_nodes
 
-        self.layer_list = nn.ModuleList([]) #use just as a python list
+        self.layer_list = nn.ModuleList([])
         for n in range(N_hidden_layers):
-            if n==0:
+            if n == 0:
                 self.layer_list.append(nn.Linear(N_inputs, N_hidden_nodes))
             else:
                 self.layer_list.append(nn.Linear(N_hidden_nodes, N_hidden_nodes))
-        
         self.output_layer = nn.Linear(N_hidden_nodes, N_outputs)
 
         self.activation = activation
         self.out_activation = nn.Softmax(dim=1)
+
+        if debug:
+                print('------------------------------------------------')
+                print(Fore.BLACK + Back.GREEN + "Policy NN: " + Style.RESET_ALL)
+                print(self)
+
 
     def forward(self, inp):
         out = inp
@@ -53,13 +63,14 @@ class PolicyNet(nn.Module):
         return pred
 
 
+
+
 class PolicyGradient:
     def __init__(self, env, N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation):
         self.N_inputs = N_inputs
         self.N_outputs = N_outputs
 
         self.policy = PolicyNet(N_inputs, N_outputs, N_hidden_layers, N_hidden_nodes, activation)
-
         self.env = env
 
         if N_outputs_per_knob==2:
@@ -69,6 +80,8 @@ class PolicyGradient:
         else:
             raise ValueError(f'Please ensure correct action space if N_outputs_per_knob=={N_outputs_per_knob}')
 
+
+
     def create_trajectories(self,
                             env, 
                             policy, 
@@ -76,33 +89,29 @@ class PolicyGradient:
                             causal=False, 
                             baseline=False, 
                             critic=False, 
-                            critic_update='MC',
-                            #debug=False):
-                            debug=True):
+                            critic_update='MC'):
 
         action_probs_all_list = []
         rewards_all_list = []
         states_all_list = []
 
-        print(f'action_space: {self.action_space}')
-
-        for _ in range(N): #run env N times
+        for _ in range(N):
+            # take state of run at random idx
             state = np.array(list(env.reset().values()))
-            print(state)
-
+            # initialize empty vectors
             action_prob_list, reward_list, state_list = torch.tensor(np.array([])), torch.tensor(np.array([])), torch.tensor(np.array([]))
             done = False 
 
             while not done:
-                state_list = torch.cat((state_list, torch.tensor(np.array([state])).float())) #
-
+                # append result state after taking a step
+                state_list = torch.cat((state_list, torch.tensor(np.array([state])).float()))
+                # run NN on state to get action probabilities
                 action_probs = policy(torch.from_numpy(state).unsqueeze(0).float()).squeeze(0)
 
                 norm = action_probs.reshape(-1, N_outputs_per_knob).sum(dim=1)
-                #print(f'norm = {norm}')
-
                 action_selected_list = []
                 action_selected_probs_list = []
+
                 for idx in np.arange(int(action_probs.shape[0]/N_outputs_per_knob)):
                     action_selected_index = torch.multinomial(action_probs[(N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)], 1)
                     action_selected_prob = action_probs[(N_outputs_per_knob*idx):(N_outputs_per_knob*idx+N_outputs_per_knob)][action_selected_index]
@@ -112,12 +121,13 @@ class PolicyGradient:
                     action_selected_probs_list.append(action_selected_prob)
 
                     if debug:
-                        print('----------------')
-                        print('action_probs.shape: ', action_probs.shape)
-                        print('action_probs: ', action_probs)
-                        print('action_selected_index: ', action_selected_index)
-                        print('action_selected_prob: ', action_selected_prob)
-                        print('action_selected: ', action_selected)
+                        print('------------------------------------------------')
+                        print(Fore.BLACK + Back.RED + "Action Probabilities: " + Style.RESET_ALL)
+                        print(action_probs)
+                        print(Fore.BLACK + Back.RED + "Action Selected Index: " + Style.RESET_ALL)
+                        print(action_selected_index)
+                        print(Fore.BLACK + Back.RED + "Action Selected: " + Style.RESET_ALL)
+                        print(action_selected)
 
                 action_selected_prob = torch.prod(torch.cat(action_selected_probs_list))
                 action_selected = action_selected_list
@@ -125,13 +135,22 @@ class PolicyGradient:
                 state, reward, done, info = env.step(action_selected, debug=debug)
                 state = np.array(list(state.values()))
 
+                print('------------------------------------------------')
+                print(state)
+                print(reward)
+                print(info)
+                print(done)
+
                 action_prob_list = torch.cat((action_prob_list, action_selected_prob.unsqueeze(0)))
                 reward_list = torch.cat((reward_list, torch.tensor([reward])))
 
-            if debug:
-                print('action_prob_list: ', action_prob_list)
+                break
+
+            if not debug:
+                print('----------------')
+                #print('action_prob_list: ', action_prob_list)
                 print('reward_list: ', reward_list)
-                print('state_list: ', state_list)
+                #print('state_list: ', state_list)
 
             action_probs_all_list.append(action_prob_list)
             rewards_all_list.append(reward_list)
@@ -140,6 +159,9 @@ class PolicyGradient:
         #non-optimized code (negative strides not supported by torch yet)
         rewards_to_go_list = [torch.tensor(np.cumsum(traj_rewards.numpy()[::-1])[::-1].copy())
                               for traj_rewards in rewards_all_list]
+
+
+
 
         #compute objective
         J = 0
@@ -249,39 +271,30 @@ class PolicyGradient:
                       causal=False,
                       baseline=False,
                       critic=None,
-                      critic_update='MC',
-                      #debug=False):
-                      debug=True):
+                      critic_update='MC'):
                 
         reward_curve = {}
-
         optimizer_policy = optim.Adam(policy.parameters(), lr=lr)
-#        if critic:
-#            optimizer_critic = optim.Adam(critic.parameters(), lr=critic_lr)
-
         exp_reward_list = []
 
+        # every iteration, create batch_size trajectories
         for i in range(N_iter):
             #step 1: generate batch_size trajectories
-            J_policy, mean_reward, J_critic = self.create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update, debug=debug)
+            J_policy, mean_reward, J_critic = self.create_trajectories(env, policy, batch_size, causal=causal, baseline=baseline, critic=critic, critic_update=critic_update)
             
             #step 2: define J and update policy
             optimizer_policy.zero_grad()
             J_policy.backward() #note: we are minimizing cost instead of maximizing reward
             optimizer_policy.step()
 
-            #step 3: 
- #           if critic:
- #               if J_critic.item() > 0.1:
- #                   optimizer_critic.zero_grad()
- #                   J_critic.backward()
- #                   optimizer_critic.step()        
-
-            if i % 10 == 0:
+            if i % 1 == 0:
                 print(f"Iteration {i} : Mean Reward = {mean_reward}")
                 reward_curve[i] = mean_reward
 
         return reward_curve
+
+
+
 
 #    def get_learning_curves(self,
 #                            N_exp, 
@@ -306,6 +319,9 @@ class PolicyGradient:
 #            rcurve[k] = (np.mean(rcurve[k]), np.std(rcurve[k]))
 #
 #        return rcurve
+
+
+
 #
 #    def plot_learning_curve(self,
 #                            rcurve, 

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pylab as plt
-import os, sys, shutil, re
+import os, shutil, re
 
 plt.ion()
 
@@ -11,8 +11,9 @@ def process_logs(PATH):
 		#extract from filename
 		itr = re.search(r'(.*?)\.(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)\.csv', f).group(4)
 		dvfs = re.search(r'(.*?)\.(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)\.csv', f).group(5)
+		qps = re.search(r'(.*?)\.(.*?)_(.*?)_(.*?)_(.*?)_(.*?)_(.*?)\.csv', f).group(7)
 
-		features = process_file(PATH + '/' + f, itr, dvfs)
+		features = process_file(PATH + '/' + f, itr, dvfs, qps)
 		data.append(features)
 
 	data = pd.DataFrame(data)
@@ -23,15 +24,20 @@ def process_logs(PATH):
 
 	return data
 
-def process_file(path, itr, dvfs):
+def process_file(path, itr, dvfs, qps):
 	features = {}
 	values = pd.read_csv(path, sep = ' ', skiprows = 1, index_col = 0, names = ['rx_desc', 'rx_bytes', 'tx_desc', 'tx_bytes', 'instructions', 'cycles', 'ref_cycles', 'llc_miss', 'c3', 'c6', 'c7', 'joules', 'timestamp'])
+#	print(values.head())
+#	print(values.shape)
+#	print(values['rx_bytes'].head())
 
 	PCT_LIST = [10, 25, 50, 75, 90, 99]
 	
 	interrupt_cols = ['rx_bytes', 'rx_desc', 'tx_bytes', 'tx_desc']
 	for c in interrupt_cols:
 		pcts = np.percentile(values[c], PCT_LIST)
+#		print(c, "percentiles: ")
+#		print(pcts)
 		for i, p in enumerate(PCT_LIST):
 			features[f'{c}_{p}'] = pcts[i]
 	    
@@ -50,13 +56,21 @@ def process_file(path, itr, dvfs):
 	#extract from filename
 	features['itr'] = itr
 	features['dvfs'] = dvfs
+	features['qps'] = qps
+
+	features['time_per_interrupt'] = values['timestamp'].max() / values.shape[0]
+	features['joules_per_interrupt'] = values['joules'].sum() / values.shape[0]
 #	
 #	features['lat_99'] = ...
 	return features
 
 if __name__ == '__main__':
-	path = sys.argv[1]
-	print(path)
-	data = process_logs(path)
-	data.to_csv("./features/logs_0_percentiles.csv", sep = ' ')
+	data = process_logs("./logs_group_0")
+	data.to_csv("./logs_0_ebbrt_percentiles.csv", sep = ' ')
 
+'''
+if too slow, we'll spawn multiple threads
+
+import multiprocessing as mp
+manager = mp.Manager()
+'''
